@@ -1,0 +1,26 @@
+{
+  "name": "TeslaTrack — Model 3 Kosten",
+  "short_name": "TeslaTrack",
+  "description": "Tesla Model 3 kostenoverzicht en kilometerregistratie",
+  "start_url": "./tesla-tracker.html",
+  "display": "standalone",
+  "background_color": "#0d0f14",
+  "theme_color": "#e3342f",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["finance", "utilities"],
+  "lang": "nl"
+}
