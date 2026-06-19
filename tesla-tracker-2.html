@@ -1,0 +1,1500 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>TeslaTrack</title>
+<meta name="description" content="Tesla Model 3 kostenoverzicht en kilometerregistratie">
+<meta name="theme-color" content="#e3342f">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="TeslaTrack">
+<link rel="manifest" href="manifest.json">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Space+Grotesk:wght@400;500;700&display=swap');
+
+  :root {
+    --bg: #0d0f14;
+    --surface: #151820;
+    --surface2: #1c2030;
+    --border: #252a3a;
+    --red: #e3342f;
+    --red-dim: rgba(227,52,47,0.12);
+    --red-glow: rgba(227,52,47,0.25);
+    --text: #e8eaf0;
+    --text-muted: #6b7289;
+    --text-dim: #9aa0b8;
+    --green: #34d399;
+    --blue: #60a5fa;
+    --amber: #fbbf24;
+    --font-display: 'Space Grotesk', sans-serif;
+    --font-body: 'Inter', sans-serif;
+    --radius: 12px;
+    --km-rate: 0.29;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font-body);
+    font-size: 14px;
+    line-height: 1.6;
+    min-height: 100vh;
+  }
+
+  /* ── Layout ── */
+  .app { display: flex; min-height: 100vh; }
+
+  .sidebar {
+    width: 220px;
+    flex-shrink: 0;
+    background: var(--surface);
+    border-right: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    padding: 0;
+    position: sticky;
+    top: 0;
+    height: 100vh;
+  }
+
+  .logo {
+    padding: 28px 24px 20px;
+    border-bottom: 1px solid var(--border);
+  }
+  .logo-mark {
+    font-family: var(--font-display);
+    font-weight: 700;
+    font-size: 18px;
+    color: var(--text);
+    letter-spacing: -0.5px;
+  }
+  .logo-mark span { color: var(--red); }
+  .logo-sub {
+    font-size: 11px;
+    color: var(--text-muted);
+    margin-top: 2px;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+  }
+
+  nav { flex: 1; padding: 16px 0; }
+  .nav-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 24px;
+    cursor: pointer;
+    color: var(--text-muted);
+    font-size: 13px;
+    font-weight: 500;
+    transition: all 0.15s;
+    border-left: 3px solid transparent;
+    user-select: none;
+  }
+  .nav-item:hover { color: var(--text); background: var(--surface2); }
+  .nav-item.active {
+    color: var(--red);
+    background: var(--red-dim);
+    border-left-color: var(--red);
+  }
+  .nav-icon { font-size: 16px; width: 18px; text-align: center; }
+
+  .sidebar-footer {
+    padding: 16px 24px;
+    border-top: 1px solid var(--border);
+    font-size: 11px;
+    color: var(--text-muted);
+  }
+
+  .main {
+    flex: 1;
+    overflow-y: auto;
+    padding: 32px;
+    max-width: 1100px;
+  }
+
+  /* ── Pages ── */
+  .page { display: none; }
+  .page.active { display: block; }
+
+  .page-header {
+    margin-bottom: 28px;
+  }
+  .page-title {
+    font-family: var(--font-display);
+    font-size: 26px;
+    font-weight: 700;
+    color: var(--text);
+    letter-spacing: -0.5px;
+  }
+  .page-sub {
+    color: var(--text-muted);
+    font-size: 13px;
+    margin-top: 4px;
+  }
+
+  /* ── KPI Cards ── */
+  .kpi-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 16px;
+    margin-bottom: 28px;
+  }
+
+  .kpi {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 20px;
+    position: relative;
+    overflow: hidden;
+  }
+  .kpi::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 2px;
+    background: var(--red);
+    opacity: 0.6;
+  }
+  .kpi.green::before { background: var(--green); }
+  .kpi.blue::before { background: var(--blue); }
+  .kpi.amber::before { background: var(--amber); }
+
+  .kpi-label {
+    font-size: 11px;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    font-weight: 500;
+    margin-bottom: 8px;
+  }
+  .kpi-value {
+    font-family: var(--font-display);
+    font-size: 28px;
+    font-weight: 700;
+    color: var(--text);
+    letter-spacing: -1px;
+    line-height: 1;
+  }
+  .kpi-value.red { color: var(--red); }
+  .kpi-value.green { color: var(--green); }
+  .kpi-value.blue { color: var(--blue); }
+  .kpi-value.amber { color: var(--amber); }
+  .kpi-sub {
+    font-size: 11px;
+    color: var(--text-muted);
+    margin-top: 6px;
+  }
+
+  /* ── Charts ── */
+  .chart-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    margin-bottom: 28px;
+  }
+  @media (max-width: 800px) { .chart-grid { grid-template-columns: 1fr; } }
+
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 20px;
+  }
+  .card-title {
+    font-family: var(--font-display);
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    margin-bottom: 16px;
+  }
+
+  /* ── Forms ── */
+  .form-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 14px;
+    margin-bottom: 16px;
+  }
+  .form-group { display: flex; flex-direction: column; gap: 6px; }
+  .form-group.full { grid-column: 1 / -1; }
+
+  label {
+    font-size: 11px;
+    font-weight: 500;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.6px;
+  }
+
+  input, select, textarea {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 10px 12px;
+    color: var(--text);
+    font-family: var(--font-body);
+    font-size: 14px;
+    outline: none;
+    transition: border-color 0.15s;
+    width: 100%;
+  }
+  input:focus, select:focus, textarea:focus {
+    border-color: var(--red);
+    box-shadow: 0 0 0 3px var(--red-dim);
+  }
+  select option { background: var(--surface2); }
+
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 20px;
+    border-radius: 8px;
+    font-family: var(--font-body);
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    border: none;
+    transition: all 0.15s;
+    text-decoration: none;
+  }
+  .btn-primary {
+    background: var(--red);
+    color: white;
+  }
+  .btn-primary:hover { background: #c82f2a; transform: translateY(-1px); }
+  .btn-secondary {
+    background: var(--surface2);
+    color: var(--text-dim);
+    border: 1px solid var(--border);
+  }
+  .btn-secondary:hover { border-color: var(--red); color: var(--text); }
+  .btn-danger {
+    background: transparent;
+    color: var(--red);
+    border: 1px solid var(--red-dim);
+    padding: 4px 10px;
+    font-size: 12px;
+  }
+  .btn-danger:hover { background: var(--red-dim); }
+
+  /* ── Tables ── */
+  .table-wrap {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    overflow: hidden;
+  }
+  table { width: 100%; border-collapse: collapse; }
+  thead th {
+    background: var(--surface2);
+    padding: 10px 14px;
+    text-align: left;
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.6px;
+    border-bottom: 1px solid var(--border);
+  }
+  tbody tr { border-bottom: 1px solid var(--border); transition: background 0.1s; }
+  tbody tr:last-child { border-bottom: none; }
+  tbody tr:hover { background: var(--surface2); }
+  td { padding: 10px 14px; font-size: 13px; color: var(--text-dim); }
+  td.mono { font-family: 'Space Grotesk', monospace; color: var(--text); }
+  td.highlight { color: var(--text); font-weight: 500; }
+
+  /* ── Month filter ── */
+  .filter-bar {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+  }
+  .filter-bar label { margin: 0; }
+
+  /* ── Tibber ── */
+  .tibber-section {
+    background: linear-gradient(135deg, rgba(96,165,250,0.08), rgba(96,165,250,0.02));
+    border: 1px solid rgba(96,165,250,0.2);
+    border-radius: var(--radius);
+    padding: 20px;
+    margin-bottom: 20px;
+  }
+  .tibber-title {
+    font-family: var(--font-display);
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--blue);
+    margin-bottom: 6px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .tibber-sub { font-size: 12px; color: var(--text-muted); margin-bottom: 14px; }
+  .tibber-row { display: flex; gap: 10px; align-items: flex-end; flex-wrap: wrap; }
+  .tibber-row .form-group { flex: 1; min-width: 200px; }
+
+  /* ── Alert ── */
+  .alert {
+    padding: 12px 16px;
+    border-radius: 8px;
+    font-size: 13px;
+    margin-bottom: 16px;
+    display: none;
+  }
+  .alert.success { background: rgba(52,211,153,0.1); border: 1px solid rgba(52,211,153,0.3); color: var(--green); display: block; }
+  .alert.error { background: var(--red-dim); border: 1px solid var(--red-glow); color: #ff7b78; display: block; }
+
+  /* ── Month badge ── */
+  .badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 20px;
+    font-size: 11px;
+    font-weight: 600;
+    background: var(--surface2);
+    color: var(--text-muted);
+  }
+  .badge.green { background: rgba(52,211,153,0.12); color: var(--green); }
+  .badge.amber { background: rgba(251,191,36,0.12); color: var(--amber); }
+  .badge.red { background: var(--red-dim); color: #ff7b78; }
+
+  /* ── Empty state ── */
+  .empty {
+    text-align: center;
+    padding: 48px 24px;
+    color: var(--text-muted);
+    font-size: 13px;
+  }
+  .empty-icon { font-size: 40px; margin-bottom: 12px; opacity: 0.4; }
+
+  /* ── Section divider ── */
+  .section-title {
+    font-family: var(--font-display);
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    margin: 24px 0 12px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  /* ── Scrollbar ── */
+  ::-webkit-scrollbar { width: 6px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+  .tag-opladen { color: var(--blue); }
+  .tag-onderhoud { color: var(--amber); }
+  .tag-verzekering { color: var(--green); }
+  .tag-wegenbelasting { color: #c084fc; }
+  .tag-overig { color: var(--text-dim); }
+  .tag-afbetaling { color: #f472b6; }
+
+  .month-header {
+    font-family: var(--font-display);
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--text-muted);
+    padding: 8px 14px;
+    background: var(--surface2);
+    border-bottom: 1px solid var(--border);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <!-- Sidebar -->
+  <aside class="sidebar">
+    <div class="logo">
+      <div class="logo-mark">Tesla<span>Track</span></div>
+      <div class="logo-sub">Model 3</div>
+    </div>
+    <nav>
+      <div class="nav-item active" onclick="showPage('dashboard')">
+        <span class="nav-icon">⚡</span> Dashboard
+      </div>
+      <div class="nav-item" onclick="showPage('kosten')">
+        <span class="nav-icon">💳</span> Kosten invoeren
+      </div>
+      <div class="nav-item" onclick="showPage('km')">
+        <span class="nav-icon">📍</span> Kilometerstand
+      </div>
+      <div class="nav-item" onclick="showPage('ritten')">
+        <span class="nav-icon">🗺️</span> Ritten
+      </div>
+      <div class="nav-item" onclick="showPage('overzicht')">
+        <span class="nav-icon">📋</span> Overzicht
+      </div>
+      <div class="nav-item" onclick="showPage('instellingen')">
+        <span class="nav-icon">⚙️</span> Instellingen
+      </div>
+    </nav>
+    <div class="sidebar-footer">
+      v2.0 · <span id="sync-status" style="color:var(--text-muted)">☁️ Drive opslag</span>
+    </div>
+  </aside>
+
+  <!-- Main -->
+  <main class="main">
+
+    <!-- ── DASHBOARD ── -->
+    <div id="page-dashboard" class="page active">
+      <div class="page-header">
+        <div class="page-title">Dashboard</div>
+        <div class="page-sub" id="dash-periode">Overzicht van al je kosten</div>
+      </div>
+
+      <div class="filter-bar">
+        <label>Periode:</label>
+        <select id="dash-filter" onchange="renderDashboard()">
+          <option value="all">Alle tijd</option>
+          <option value="year">Dit jaar</option>
+          <option value="month" selected>Deze maand</option>
+          <option value="last3">Laatste 3 maanden</option>
+        </select>
+      </div>
+
+      <div class="kpi-grid" id="kpi-grid"></div>
+
+      <div class="chart-grid">
+        <div class="card">
+          <div class="card-title">Kosten per maand</div>
+          <canvas id="chart-maand" height="200"></canvas>
+        </div>
+        <div class="card">
+          <div class="card-title">Kosten per categorie</div>
+          <canvas id="chart-cat" height="200"></canvas>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">Kilometervergoeding per maand</div>
+        <canvas id="chart-km" height="120"></canvas>
+      </div>
+    </div>
+
+    <!-- ── KOSTEN INVOEREN ── -->
+    <div id="page-kosten" class="page">
+      <div class="page-header">
+        <div class="page-title">Kosten invoeren</div>
+        <div class="page-sub">Voeg een nieuwe kostenpost toe</div>
+      </div>
+
+      <div class="card" style="margin-bottom:20px">
+        <div id="kosten-alert"></div>
+        <div class="form-grid">
+          <div class="form-group">
+            <label>Datum</label>
+            <input type="date" id="k-datum">
+          </div>
+          <div class="form-group">
+            <label>Categorie</label>
+            <select id="k-cat">
+              <option value="opladen">⚡ Opladen</option>
+              <option value="onderhoud">🔧 Onderhoud</option>
+              <option value="verzekering">🛡️ Verzekering</option>
+              <option value="wegenbelasting">🏛️ Wegenbelasting</option>
+              <option value="afbetaling">💳 Afbetaling</option>
+              <option value="overig">📦 Overig</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Bedrag (€)</label>
+            <input type="number" id="k-bedrag" step="0.01" placeholder="0.00">
+          </div>
+          <div class="form-group">
+            <label>kWh (bij opladen)</label>
+            <input type="number" id="k-kwh" step="0.01" placeholder="bijv. 32.5">
+          </div>
+          <div class="form-group full">
+            <label>Omschrijving</label>
+            <input type="text" id="k-omschrijving" placeholder="Bijv. thuis opladen via Tibber">
+          </div>
+        </div>
+        <button class="btn btn-primary" onclick="saveKost()">＋ Toevoegen</button>
+      </div>
+
+      <!-- Tibber import -->
+      <div class="tibber-section">
+        <div class="tibber-title">⚡ Tibber importeren</div>
+        <div class="tibber-sub">Haal laaddata automatisch op via de Tibber API. Vul je persoonlijke token in (te vinden op tibber.com/us/account).</div>
+        <div id="tibber-alert"></div>
+        <div class="tibber-row">
+          <div class="form-group">
+            <label>Tibber API Token</label>
+            <input type="password" id="tibber-token" placeholder="Plak hier je token...">
+          </div>
+          <div class="form-group" style="max-width:130px">
+            <label>Laatste # dagen</label>
+            <input type="number" id="tibber-days" value="30" min="1" max="365">
+          </div>
+          <div style="padding-bottom:2px">
+            <button class="btn btn-secondary" onclick="fetchTibber()">📥 Ophalen</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Recente kosten -->
+      <div class="section-title">Recente kosten</div>
+      <div class="table-wrap" id="kosten-table-wrap">
+        <div class="empty"><div class="empty-icon">💳</div>Nog geen kosten ingevoerd.</div>
+      </div>
+    </div>
+
+    <!-- ── KILOMETERSTAND ── -->
+    <div id="page-km" class="page">
+      <div class="page-header">
+        <div class="page-title">Kilometerstand</div>
+        <div class="page-sub">Voer de kilometerstand van je Tesla in</div>
+      </div>
+
+      <div class="card" style="margin-bottom:20px">
+        <div id="km-alert"></div>
+        <div class="form-grid">
+          <div class="form-group">
+            <label>Datum</label>
+            <input type="date" id="km-datum">
+          </div>
+          <div class="form-group">
+            <label>Kilometerstand</label>
+            <input type="number" id="km-stand" placeholder="bijv. 24500">
+          </div>
+          <div class="form-group full">
+            <label>Notitie (optioneel)</label>
+            <input type="text" id="km-notitie" placeholder="bijv. APK, lange rit">
+          </div>
+        </div>
+        <button class="btn btn-primary" onclick="saveKm()">＋ Opslaan</button>
+      </div>
+
+      <div class="section-title">Kilometerstand historie</div>
+      <div class="table-wrap" id="km-table-wrap">
+        <div class="empty"><div class="empty-icon">📍</div>Nog geen kilometerstanden ingevoerd.</div>
+      </div>
+    </div>
+
+    <!-- ── RITTEN ── -->
+    <div id="page-ritten" class="page">
+      <div class="page-header">
+        <div class="page-title">Ritten (zakelijk)</div>
+        <div class="page-sub">Leg zakelijke ritten vast voor je kilometervergoeding van €0,29/km</div>
+      </div>
+
+      <div class="card" style="margin-bottom:20px">
+        <div id="ritten-alert"></div>
+        <div class="form-grid">
+          <div class="form-group">
+            <label>Datum</label>
+            <input type="date" id="r-datum">
+          </div>
+          <div class="form-group">
+            <label>Van</label>
+            <input type="text" id="r-van" placeholder="Vertrekpunt">
+          </div>
+          <div class="form-group">
+            <label>Naar</label>
+            <input type="text" id="r-naar" placeholder="Bestemming">
+          </div>
+          <div class="form-group">
+            <label>Kilometers</label>
+            <input type="number" id="r-km" step="0.1" placeholder="bijv. 42">
+          </div>
+          <div class="form-group">
+            <label>Type rit</label>
+            <select id="r-type">
+              <option value="zakelijk">Zakelijk</option>
+              <option value="woon-werk">Woon-werk</option>
+              <option value="prive">Privé</option>
+            </select>
+          </div>
+          <div class="form-group full">
+            <label>Doel / opmerking</label>
+            <input type="text" id="r-doel" placeholder="bijv. klantbezoek Amsterdam">
+          </div>
+        </div>
+        <button class="btn btn-primary" onclick="saveRit()">＋ Rit toevoegen</button>
+      </div>
+
+      <div class="kpi-grid" id="ritten-kpi" style="margin-bottom:20px"></div>
+
+      <div class="section-title">Rittenregistratie</div>
+      <div class="filter-bar">
+        <label>Maand:</label>
+        <select id="ritten-maand-filter" onchange="renderRitten()">
+          <option value="all">Alle maanden</option>
+        </select>
+      </div>
+      <div class="table-wrap" id="ritten-table-wrap">
+        <div class="empty"><div class="empty-icon">🗺️</div>Nog geen ritten geregistreerd.</div>
+      </div>
+    </div>
+
+    <!-- ── OVERZICHT ── -->
+    <div id="page-overzicht" class="page">
+      <div class="page-header">
+        <div class="page-title">Maandoverzicht</div>
+        <div class="page-sub">Gedetailleerd overzicht per maand</div>
+      </div>
+      <div id="overzicht-content"></div>
+    </div>
+
+    <!-- ── INSTELLINGEN ── -->
+    <div id="page-instellingen" class="page">
+      <div class="page-header">
+        <div class="page-title">Instellingen</div>
+        <div class="page-sub">Pas de app aan naar jouw situatie</div>
+      </div>
+      <div class="card" style="margin-bottom:20px">
+        <div class="section-title" style="margin-top:0">Kilometervergoeding</div>
+        <div class="form-grid">
+          <div class="form-group">
+            <label>Vergoeding per km (€)</label>
+            <input type="number" id="inst-km-rate" step="0.01" value="0.29">
+          </div>
+          <div class="form-group">
+            <label>Naam eigenaar</label>
+            <input type="text" id="inst-naam" placeholder="bijv. Jan de Vries">
+          </div>
+          <div class="form-group">
+            <label>Kenteken</label>
+            <input type="text" id="inst-kenteken" placeholder="bijv. AA-123-BB">
+          </div>
+        </div>
+        <button class="btn btn-primary" onclick="saveInstellingen()">Opslaan</button>
+        <span id="inst-alert" style="margin-left:12px; font-size:12px; color:var(--green)"></span>
+      </div>
+
+      <div class="card" style="margin-bottom:20px">
+        <div class="section-title" style="margin-top:0">Tesla API (experimenteel)</div>
+        <p style="color:var(--text-muted);font-size:12px;margin-bottom:14px">
+          De Tesla API vereist een persoonlijk access token. Dit kun je ophalen via de Tesla app (Instellingen → Account) of tools zoals <a href="https://tesla-info.com/tesla-token.php" target="_blank" style="color:var(--blue)">tesla-info.com</a>. Gebruik dit op eigen risico.
+        </p>
+        <div class="form-grid">
+          <div class="form-group full">
+            <label>Tesla Access Token</label>
+            <input type="password" id="inst-tesla-token" placeholder="Bearer token...">
+          </div>
+        </div>
+        <button class="btn btn-secondary" onclick="fetchTeslaOdometer()">🚗 Kilometerstand ophalen</button>
+        <span id="tesla-alert" style="margin-left:12px;font-size:12px"></span>
+      </div>
+
+      <div class="card">
+        <div class="section-title" style="margin-top:0">Data beheer</div>
+        <div style="display:flex;gap:10px;flex-wrap:wrap">
+          <button class="btn btn-secondary" onclick="exportData()">📤 Exporteer JSON</button>
+          <button class="btn btn-secondary" onclick="importData()">📥 Importeer JSON</button>
+          <button class="btn btn-secondary" onclick="syncToDrive()">☁️ Opslaan in Drive</button>
+          <button class="btn btn-secondary" onclick="syncFromDrive()">☁️ Laden uit Drive</button>
+          <button class="btn btn-danger" onclick="clearAll()" style="padding:10px 16px;font-size:13px">🗑️ Alles wissen</button>
+        </div>
+        <input type="file" id="import-file" accept=".json" style="display:none" onchange="handleImport(event)">
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<script>
+// ══════════════════════════════
+//  DATA LAYER — localStorage + optionele Drive sync
+// ══════════════════════════════
+const DRIVE_FILE_ID = '1bDSRoZrGRu0tYN56SvzwXZ6nOI1auwPp';
+let driveSyncing = false;
+
+function showSyncStatus(msg, type = 'info') {
+  const el = document.getElementById('sync-status');
+  if (!el) return;
+  const colors = { info: 'var(--text-muted)', ok: 'var(--green)', error: 'var(--red)', busy: 'var(--amber)' };
+  el.style.color = colors[type] || 'var(--text-muted)';
+  el.textContent = msg;
+}
+
+// ── localStorage (altijd, direct) ──
+function save(key, data) {
+  localStorage.setItem(key, JSON.stringify(data));
+  showSyncStatus('✓ Opgeslagen', 'ok');
+  setTimeout(() => showSyncStatus('💾 Lokale opslag', 'info'), 2000);
+}
+
+function loadFromLocal() {
+  kosten    = JSON.parse(localStorage.getItem('tt_kosten')  || '[]');
+  kmStanden = JSON.parse(localStorage.getItem('tt_km')      || '[]');
+  ritten    = JSON.parse(localStorage.getItem('tt_ritten')  || '[]');
+  inst      = JSON.parse(localStorage.getItem('tt_inst')    || '{"kmRate":0.29,"naam":"","kenteken":""}');
+  showSyncStatus('💾 Lokale opslag', 'info');
+}
+
+// ── Google Drive (optioneel, handmatig) ──
+async function callDriveAPI(userMessage) {
+  const resp = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      model: 'claude-sonnet-4-6',
+      max_tokens: 4096,
+      system: 'You are a Google Drive file manager. Only use the provided MCP tools to read or write files. Return ONLY raw JSON, no markdown, no explanation.',
+      messages: [{ role: 'user', content: userMessage }],
+      mcp_servers: [{ type: 'url', url: 'https://drivemcp.googleapis.com/mcp/v1', name: 'gdrive' }]
+    })
+  });
+  if (!resp.ok) throw new Error('API fout: ' + resp.status);
+  const data = await resp.json();
+  const toolResults = (data.content || []).filter(b => b.type === 'mcp_tool_result');
+  if (toolResults.length) return toolResults.map(b => b.content?.[0]?.text || '').join('');
+  return (data.content || []).filter(b => b.type === 'text').map(b => b.text).join('');
+}
+
+async function syncToDrive() {
+  if (driveSyncing) return;
+  driveSyncing = true;
+  showSyncStatus('☁️ Opslaan in Drive...', 'busy');
+  try {
+    const content = JSON.stringify({ kosten, kmStanden, ritten, inst }, null, 2);
+    await callDriveAPI(
+      `Update the Google Drive file with ID "${DRIVE_FILE_ID}" by uploading this exact JSON content. File title: "teslatrack-data.json", mime type: "application/json". Content:\n${content}`
+    );
+    showSyncStatus('✓ Drive gesynchroniseerd', 'ok');
+    setTimeout(() => showSyncStatus('💾 Lokale opslag', 'info'), 3000);
+  } catch(e) {
+    showSyncStatus('⚠️ Drive fout: ' + e.message, 'error');
+  } finally {
+    driveSyncing = false;
+  }
+}
+
+async function syncFromDrive() {
+  showSyncStatus('☁️ Laden uit Drive...', 'busy');
+  try {
+    const raw = await callDriveAPI(
+      `Download the content of file with ID "${DRIVE_FILE_ID}" from Google Drive and return ONLY the raw JSON content.`
+    );
+    const match = raw.match(/\{[\s\S]*\}/);
+    if (!match) throw new Error('Geen JSON gevonden');
+    const parsed = JSON.parse(match[0]);
+    kosten    = Array.isArray(parsed.kosten)    ? parsed.kosten    : [];
+    kmStanden = Array.isArray(parsed.kmStanden) ? parsed.kmStanden : [];
+    ritten    = Array.isArray(parsed.ritten)    ? parsed.ritten    : [];
+    inst      = parsed.inst || { kmRate: 0.29, naam: '', kenteken: '' };
+    // Sla ook lokaal op
+    localStorage.setItem('tt_kosten',  JSON.stringify(kosten));
+    localStorage.setItem('tt_km',      JSON.stringify(kmStanden));
+    localStorage.setItem('tt_ritten',  JSON.stringify(ritten));
+    localStorage.setItem('tt_inst',    JSON.stringify(inst));
+    showSyncStatus('✓ Drive geladen', 'ok');
+    setTimeout(() => showSyncStatus('💾 Lokale opslag', 'info'), 3000);
+    renderDashboard();
+  } catch(e) {
+    showSyncStatus('⚠️ Drive fout: ' + e.message, 'error');
+  }
+}
+
+let kosten    = [];
+let kmStanden = [];
+let ritten    = [];
+let inst      = { kmRate: 0.29, naam: '', kenteken: '' };
+
+function getKmRate() { return parseFloat(inst.kmRate) || 0.29; }
+
+// ══════════════════════════════
+//  NAVIGATION
+// ══════════════════════════════
+let chartMaand, chartCat, chartKm;
+
+function showPage(name) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  document.querySelectorAll('.mobile-nav-item').forEach(n => n.classList.remove('active'));
+  document.getElementById('page-' + name).classList.add('active');
+  const match = { dashboard:'dashboard', kosten:'kosten', km:'km', ritten:'ritten', overzicht:'overzicht', instellingen:'instellingen' };
+  document.querySelectorAll('.nav-item').forEach(n => {
+    if (n.textContent.toLowerCase().includes(name === 'km' ? 'kilometerstand' : match[name] || name)) n.classList.add('active');
+  });
+  document.querySelectorAll('.mobile-nav-item').forEach(n => {
+    if (n.getAttribute('onclick')?.includes("'"+name+"'")) n.classList.add('active');
+  });
+  if (name === 'dashboard') renderDashboard();
+  if (name === 'kosten') renderKostenTable();
+  if (name === 'km') renderKmTable();
+  if (name === 'ritten') renderRitten();
+  if (name === 'overzicht') renderOverzicht();
+  if (name === 'instellingen') loadInstellingen();
+}
+
+// ══════════════════════════════
+//  HELPERS
+// ══════════════════════════════
+function fmt(n, dec=2) { return '€ ' + (parseFloat(n)||0).toLocaleString('nl-NL', {minimumFractionDigits:dec, maximumFractionDigits:dec}); }
+function fmtKm(n) { return (parseFloat(n)||0).toLocaleString('nl-NL', {minimumFractionDigits:0, maximumFractionDigits:0}) + ' km'; }
+function fmtKwh(n) { return (parseFloat(n)||0).toLocaleString('nl-NL', {minimumFractionDigits:1, maximumFractionDigits:1}) + ' kWh'; }
+function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2); }
+
+function maandLabel(ym) {
+  const [y, m] = ym.split('-');
+  const d = new Date(y, m-1, 1);
+  return d.toLocaleDateString('nl-NL', { month: 'long', year: 'numeric' });
+}
+
+function getYM(dateStr) { return dateStr ? dateStr.slice(0,7) : ''; }
+function today() { return new Date().toISOString().slice(0,10); }
+
+function filterByPeriod(items, period) {
+  const now = new Date();
+  const thisYear = now.getFullYear();
+  const thisMonth = `${thisYear}-${String(now.getMonth()+1).padStart(2,'0')}`;
+  if (period === 'all') return items;
+  if (period === 'year') return items.filter(i => i.datum && i.datum.startsWith(thisYear));
+  if (period === 'month') return items.filter(i => getYM(i.datum) === thisMonth);
+  if (period === 'last3') {
+    const months = [];
+    for (let x = 0; x < 3; x++) {
+      const d = new Date(now.getFullYear(), now.getMonth() - x, 1);
+      months.push(`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`);
+    }
+    return items.filter(i => months.includes(getYM(i.datum)));
+  }
+  return items;
+}
+
+// ══════════════════════════════
+//  DASHBOARD
+// ══════════════════════════════
+function renderDashboard() {
+  const period = document.getElementById('dash-filter').value;
+  const filteredKosten = filterByPeriod(kosten, period);
+  const filteredRitten = filterByPeriod(ritten, period);
+
+  const totalKosten = filteredKosten.reduce((s, k) => s + (parseFloat(k.bedrag)||0), 0);
+  const oplaadKosten = filteredKosten.filter(k => k.cat === 'opladen').reduce((s, k) => s + (parseFloat(k.bedrag)||0), 0);
+  const totalkWh = filteredKosten.filter(k => k.kwh).reduce((s, k) => s + (parseFloat(k.kwh)||0), 0);
+  const zakKm = filteredRitten.filter(r => r.type !== 'prive').reduce((s, r) => s + (parseFloat(r.km)||0), 0);
+  const vergoed = zakKm * getKmRate();
+
+  document.getElementById('kpi-grid').innerHTML = `
+    <div class="kpi">
+      <div class="kpi-label">Totale kosten</div>
+      <div class="kpi-value red">${fmt(totalKosten)}</div>
+      <div class="kpi-sub">${filteredKosten.length} posten</div>
+    </div>
+    <div class="kpi blue">
+      <div class="kpi-label">Oplaadkosten</div>
+      <div class="kpi-value blue">${fmt(oplaadKosten)}</div>
+      <div class="kpi-sub">${fmtKwh(totalkWh)} opgeladen</div>
+    </div>
+    <div class="kpi green">
+      <div class="kpi-label">Km-vergoeding</div>
+      <div class="kpi-value green">${fmt(vergoed)}</div>
+      <div class="kpi-sub">${fmtKm(zakKm)} zakelijk</div>
+    </div>
+    <div class="kpi amber">
+      <div class="kpi-label">Saldo</div>
+      <div class="kpi-value ${vergoed - totalKosten >= 0 ? 'green' : 'red'}">${fmt(vergoed - totalKosten)}</div>
+      <div class="kpi-sub">vergoeding − kosten</div>
+    </div>
+  `;
+
+  // Maandgrafiek
+  const maandMap = {};
+  kosten.forEach(k => {
+    const ym = getYM(k.datum);
+    if (!ym) return;
+    maandMap[ym] = (maandMap[ym] || 0) + (parseFloat(k.bedrag)||0);
+  });
+  const sortedMonths = Object.keys(maandMap).sort();
+  const lastMonths = sortedMonths.slice(-12);
+
+  if (chartMaand) chartMaand.destroy();
+  const ctx1 = document.getElementById('chart-maand').getContext('2d');
+  chartMaand = new Chart(ctx1, {
+    type: 'bar',
+    data: {
+      labels: lastMonths.map(m => m.slice(0,7)),
+      datasets: [{
+        label: 'Kosten (€)',
+        data: lastMonths.map(m => maandMap[m] || 0),
+        backgroundColor: 'rgba(227,52,47,0.7)',
+        borderRadius: 4,
+      }]
+    },
+    options: {
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { ticks: { color: '#6b7289', font: { size: 10 } }, grid: { color: '#252a3a' } },
+        y: { ticks: { color: '#6b7289', font: { size: 10 }, callback: v => '€'+v }, grid: { color: '#252a3a' } }
+      }
+    }
+  });
+
+  // Categorie pie
+  const catMap = {};
+  filteredKosten.forEach(k => { catMap[k.cat] = (catMap[k.cat] || 0) + (parseFloat(k.bedrag)||0); });
+  const catLabels = Object.keys(catMap);
+  const catColors = { opladen:'#60a5fa', onderhoud:'#fbbf24', verzekering:'#34d399', wegenbelasting:'#c084fc', afbetaling:'#f472b6', overig:'#9aa0b8' };
+
+  if (chartCat) chartCat.destroy();
+  const ctx2 = document.getElementById('chart-cat').getContext('2d');
+  chartCat = new Chart(ctx2, {
+    type: 'doughnut',
+    data: {
+      labels: catLabels,
+      datasets: [{
+        data: catLabels.map(c => catMap[c]),
+        backgroundColor: catLabels.map(c => catColors[c] || '#9aa0b8'),
+        borderWidth: 0,
+        hoverOffset: 4
+      }]
+    },
+    options: {
+      plugins: {
+        legend: { labels: { color: '#9aa0b8', font: { size: 11 } } }
+      }
+    }
+  });
+
+  // KM vergoeding per maand
+  const kmMap = {};
+  ritten.filter(r => r.type !== 'prive').forEach(r => {
+    const ym = getYM(r.datum);
+    if (!ym) return;
+    kmMap[ym] = (kmMap[ym] || 0) + (parseFloat(r.km)||0);
+  });
+  const kmMonths = Object.keys(kmMap).sort().slice(-12);
+
+  if (chartKm) chartKm.destroy();
+  const ctx3 = document.getElementById('chart-km').getContext('2d');
+  chartKm = new Chart(ctx3, {
+    type: 'bar',
+    data: {
+      labels: kmMonths,
+      datasets: [{
+        label: 'Km-vergoeding (€)',
+        data: kmMonths.map(m => ((kmMap[m]||0) * getKmRate()).toFixed(2)),
+        backgroundColor: 'rgba(52,211,153,0.6)',
+        borderRadius: 4,
+      }]
+    },
+    options: {
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { ticks: { color: '#6b7289', font: { size: 10 } }, grid: { color: '#252a3a' } },
+        y: { ticks: { color: '#6b7289', font: { size: 10 }, callback: v => '€'+v }, grid: { color: '#252a3a' } }
+      }
+    }
+  });
+}
+
+// ══════════════════════════════
+//  KOSTEN
+// ══════════════════════════════
+function saveKost() {
+  const datum = document.getElementById('k-datum').value;
+  const cat = document.getElementById('k-cat').value;
+  const bedrag = document.getElementById('k-bedrag').value;
+  const kwh = document.getElementById('k-kwh').value;
+  const omschrijving = document.getElementById('k-omschrijving').value;
+
+  if (!datum || !bedrag) {
+    showAlert('kosten-alert', 'Vul datum en bedrag in.', 'error'); return;
+  }
+  kosten.push({ id: uid(), datum, cat, bedrag: parseFloat(bedrag), kwh: parseFloat(kwh)||null, omschrijving });
+  save('tt_kosten', kosten);
+  showAlert('kosten-alert', 'Kostenpost opgeslagen!', 'success');
+  document.getElementById('k-bedrag').value = '';
+  document.getElementById('k-kwh').value = '';
+  document.getElementById('k-omschrijving').value = '';
+  renderKostenTable();
+}
+
+function deleteKost(id) {
+  kosten = kosten.filter(k => k.id !== id);
+  save('tt_kosten', kosten);
+  renderKostenTable();
+}
+
+function renderKostenTable() {
+  const wrap = document.getElementById('kosten-table-wrap');
+  const recent = [...kosten].sort((a,b) => b.datum.localeCompare(a.datum)).slice(0, 50);
+  if (!recent.length) { wrap.innerHTML = '<div class="empty"><div class="empty-icon">💳</div>Nog geen kosten ingevoerd.</div>'; return; }
+
+  const catIcon = { opladen:'⚡', onderhoud:'🔧', verzekering:'🛡️', wegenbelasting:'🏛️', afbetaling:'💳', overig:'📦' };
+  const rows = recent.map(k => `
+    <tr>
+      <td>${k.datum}</td>
+      <td><span class="tag-${k.cat}">${catIcon[k.cat]||''} ${k.cat}</span></td>
+      <td class="mono">${fmt(k.bedrag)}</td>
+      <td>${k.kwh ? fmtKwh(k.kwh) : '—'}</td>
+      <td class="highlight">${k.omschrijving || '—'}</td>
+      <td><button class="btn btn-danger" onclick="deleteKost('${k.id}')">✕</button></td>
+    </tr>`).join('');
+
+  wrap.innerHTML = `<table>
+    <thead><tr><th>Datum</th><th>Categorie</th><th>Bedrag</th><th>kWh</th><th>Omschrijving</th><th></th></tr></thead>
+    <tbody>${rows}</tbody>
+  </table>`;
+}
+
+// ══════════════════════════════
+//  TIBBER
+// ══════════════════════════════
+async function fetchTibber() {
+  const token = document.getElementById('tibber-token').value.trim();
+  const days = parseInt(document.getElementById('tibber-days').value) || 30;
+  if (!token) { showAlert('tibber-alert', 'Voer een Tibber API token in.', 'error'); return; }
+
+  showAlert('tibber-alert', '⏳ Ophalen van Tibber data...', 'success');
+
+  try {
+    const after = new Date(Date.now() - days * 86400000).toISOString();
+    const query = `{
+      viewer {
+        homes {
+          consumption(resolution: HOURLY, last: ${days * 24}) {
+            nodes {
+              from
+              cost
+              consumption
+            }
+          }
+        }
+      }
+    }`;
+
+    const resp = await fetch('https://api.tibber.com/v1-beta/gql', {
+      method: 'POST',
+      headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ query })
+    });
+    const data = await resp.json();
+    if (data.errors) { showAlert('tibber-alert', 'Fout: ' + data.errors[0].message, 'error'); return; }
+
+    const nodes = data?.data?.viewer?.homes?.[0]?.consumption?.nodes || [];
+    if (!nodes.length) { showAlert('tibber-alert', 'Geen verbruiksdata gevonden.', 'error'); return; }
+
+    // Groepeer per dag
+    const dagMap = {};
+    nodes.forEach(n => {
+      const dag = n.from.slice(0,10);
+      if (!dagMap[dag]) dagMap[dag] = { cost: 0, kwh: 0 };
+      dagMap[dag].cost += n.cost || 0;
+      dagMap[dag].kwh += n.consumption || 0;
+    });
+
+    let added = 0;
+    Object.entries(dagMap).forEach(([dag, v]) => {
+      if (v.kwh > 0.5) { // minimaal 0.5 kWh om te tellen als opladen
+        const exists = kosten.find(k => k.datum === dag && k.cat === 'opladen' && k.omschrijving?.includes('Tibber'));
+        if (!exists) {
+          kosten.push({ id: uid(), datum: dag, cat: 'opladen', bedrag: parseFloat(v.cost.toFixed(2)), kwh: parseFloat(v.kwh.toFixed(2)), omschrijving: 'Tibber (auto import)' });
+          added++;
+        }
+      }
+    });
+    save('tt_kosten', kosten);
+    showAlert('tibber-alert', `✅ ${added} nieuwe laadsessies toegevoegd!`, 'success');
+    renderKostenTable();
+  } catch (e) {
+    showAlert('tibber-alert', 'Netwerkfout: ' + e.message, 'error');
+  }
+}
+
+// ══════════════════════════════
+//  KILOMETERSTAND
+// ══════════════════════════════
+function saveKm() {
+  const datum = document.getElementById('km-datum').value;
+  const stand = document.getElementById('km-stand').value;
+  const notitie = document.getElementById('km-notitie').value;
+  if (!datum || !stand) { showAlert('km-alert', 'Vul datum en kilometerstand in.', 'error'); return; }
+  kmStanden.push({ id: uid(), datum, stand: parseFloat(stand), notitie });
+  save('tt_km', kmStanden);
+  showAlert('km-alert', 'Kilometerstand opgeslagen!', 'success');
+  document.getElementById('km-stand').value = '';
+  document.getElementById('km-notitie').value = '';
+  renderKmTable();
+}
+
+function deleteKmEntry(id) {
+  kmStanden = kmStanden.filter(k => k.id !== id);
+  save('tt_km', kmStanden);
+  renderKmTable();
+}
+
+function renderKmTable() {
+  const wrap = document.getElementById('km-table-wrap');
+  const sorted = [...kmStanden].sort((a,b) => b.datum.localeCompare(a.datum));
+  if (!sorted.length) { wrap.innerHTML = '<div class="empty"><div class="empty-icon">📍</div>Nog geen kilometerstanden ingevoerd.</div>'; return; }
+
+  const rows = sorted.map((k, i) => {
+    const prev = sorted[i+1];
+    const diff = prev ? k.stand - prev.stand : null;
+    return `<tr>
+      <td>${k.datum}</td>
+      <td class="mono">${k.stand.toLocaleString('nl-NL')} km</td>
+      <td class="mono">${diff !== null ? '+' + diff.toLocaleString('nl-NL') + ' km' : '—'}</td>
+      <td>${k.notitie || '—'}</td>
+      <td><button class="btn btn-danger" onclick="deleteKmEntry('${k.id}')">✕</button></td>
+    </tr>`;
+  }).join('');
+
+  wrap.innerHTML = `<table>
+    <thead><tr><th>Datum</th><th>Stand</th><th>Verschil</th><th>Notitie</th><th></th></tr></thead>
+    <tbody>${rows}</tbody>
+  </table>`;
+}
+
+// ══════════════════════════════
+//  RITTEN
+// ══════════════════════════════
+function saveRit() {
+  const datum = document.getElementById('r-datum').value;
+  const van = document.getElementById('r-van').value;
+  const naar = document.getElementById('r-naar').value;
+  const km = document.getElementById('r-km').value;
+  const type = document.getElementById('r-type').value;
+  const doel = document.getElementById('r-doel').value;
+
+  if (!datum || !km) { showAlert('ritten-alert', 'Vul datum en kilometers in.', 'error'); return; }
+  ritten.push({ id: uid(), datum, van, naar, km: parseFloat(km), type, doel });
+  save('tt_ritten', ritten);
+  showAlert('ritten-alert', 'Rit opgeslagen!', 'success');
+  ['r-van','r-naar','r-km','r-doel'].forEach(id => document.getElementById(id).value = '');
+  renderRitten();
+}
+
+function deleteRit(id) {
+  ritten = ritten.filter(r => r.id !== id);
+  save('tt_ritten', ritten);
+  renderRitten();
+}
+
+function renderRitten() {
+  // Populeer maandfilter
+  const maanden = [...new Set(ritten.map(r => getYM(r.datum)))].sort().reverse();
+  const sel = document.getElementById('ritten-maand-filter');
+  const curVal = sel.value;
+  sel.innerHTML = '<option value="all">Alle maanden</option>' +
+    maanden.map(m => `<option value="${m}" ${m===curVal?'selected':''}>${maandLabel(m)}</option>`).join('');
+
+  const filter = sel.value;
+  const filtered = filter === 'all' ? ritten : ritten.filter(r => getYM(r.datum) === filter);
+  const zakKm = filtered.filter(r => r.type !== 'prive').reduce((s,r) => s + r.km, 0);
+  const privKm = filtered.filter(r => r.type === 'prive').reduce((s,r) => s + r.km, 0);
+  const vergoed = zakKm * getKmRate();
+
+  document.getElementById('ritten-kpi').innerHTML = `
+    <div class="kpi green">
+      <div class="kpi-label">Zakelijke km</div>
+      <div class="kpi-value green">${fmtKm(zakKm)}</div>
+      <div class="kpi-sub">${fmt(vergoed)} vergoeding</div>
+    </div>
+    <div class="kpi">
+      <div class="kpi-label">Privé km</div>
+      <div class="kpi-value">${fmtKm(privKm)}</div>
+      <div class="kpi-sub">&nbsp;</div>
+    </div>
+    <div class="kpi amber">
+      <div class="kpi-label">Totaal km</div>
+      <div class="kpi-value amber">${fmtKm(zakKm + privKm)}</div>
+      <div class="kpi-sub">${filtered.length} ritten</div>
+    </div>
+  `;
+
+  const wrap = document.getElementById('ritten-table-wrap');
+  const sorted = [...filtered].sort((a,b) => b.datum.localeCompare(a.datum));
+  if (!sorted.length) { wrap.innerHTML = '<div class="empty"><div class="empty-icon">🗺️</div>Geen ritten gevonden.</div>'; return; }
+
+  const typeLabel = { zakelijk: '<span class="badge green">zakelijk</span>', 'woon-werk': '<span class="badge amber">woon-werk</span>', prive: '<span class="badge">privé</span>' };
+  const rows = sorted.map(r => `
+    <tr>
+      <td>${r.datum}</td>
+      <td>${typeLabel[r.type] || r.type}</td>
+      <td class="highlight">${r.van || '—'} → ${r.naar || '—'}</td>
+      <td class="mono">${r.km.toLocaleString('nl-NL')} km</td>
+      <td class="mono green">${r.type !== 'prive' ? fmt(r.km * getKmRate()) : '—'}</td>
+      <td>${r.doel || '—'}</td>
+      <td><button class="btn btn-danger" onclick="deleteRit('${r.id}')">✕</button></td>
+    </tr>`).join('');
+
+  wrap.innerHTML = `<table>
+    <thead><tr><th>Datum</th><th>Type</th><th>Route</th><th>Km</th><th>Vergoeding</th><th>Doel</th><th></th></tr></thead>
+    <tbody>${rows}</tbody>
+  </table>`;
+}
+
+// ══════════════════════════════
+//  OVERZICHT
+// ══════════════════════════════
+function renderOverzicht() {
+  const maanden = [...new Set([
+    ...kosten.map(k => getYM(k.datum)),
+    ...ritten.map(r => getYM(r.datum))
+  ].filter(Boolean))].sort().reverse();
+
+  if (!maanden.length) {
+    document.getElementById('overzicht-content').innerHTML = '<div class="empty"><div class="empty-icon">📋</div>Voer eerst kosten of ritten in.</div>';
+    return;
+  }
+
+  let html = '';
+  maanden.forEach(ym => {
+    const mKosten = kosten.filter(k => getYM(k.datum) === ym);
+    const mRitten = ritten.filter(r => getYM(r.datum) === ym);
+    const totKosten = mKosten.reduce((s,k) => s + k.bedrag, 0);
+    const zakKm = mRitten.filter(r => r.type !== 'prive').reduce((s,r) => s + r.km, 0);
+    const vergoed = zakKm * getKmRate();
+    const saldo = vergoed - totKosten;
+
+    html += `
+    <div class="card" style="margin-bottom:16px">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:10px">
+        <div class="card-title" style="margin:0">${maandLabel(ym)}</div>
+        <div style="display:flex;gap:12px;flex-wrap:wrap">
+          <span>Kosten: <strong style="color:var(--red)">${fmt(totKosten)}</strong></span>
+          <span>Vergoeding: <strong style="color:var(--green)">${fmt(vergoed)}</strong></span>
+          <span>Saldo: <strong style="color:${saldo>=0?'var(--green)':'var(--red)'}">${fmt(saldo)}</strong></span>
+        </div>
+      </div>
+      ${mKosten.length ? `
+        <table style="width:100%;font-size:12px;margin-bottom:8px">
+          <thead><tr style="background:var(--surface2)"><th style="padding:6px 10px;text-align:left;color:var(--text-muted)">Datum</th><th style="padding:6px 10px;text-align:left;color:var(--text-muted)">Categorie</th><th style="padding:6px 10px;text-align:left;color:var(--text-muted)">Bedrag</th><th style="padding:6px 10px;text-align:left;color:var(--text-muted)">Omschrijving</th></tr></thead>
+          <tbody>${mKosten.sort((a,b)=>a.datum.localeCompare(b.datum)).map(k=>`<tr style="border-bottom:1px solid var(--border)"><td style="padding:6px 10px;color:var(--text-muted)">${k.datum}</td><td style="padding:6px 10px" class="tag-${k.cat}">${k.cat}</td><td style="padding:6px 10px;color:var(--text)">${fmt(k.bedrag)}</td><td style="padding:6px 10px;color:var(--text-dim)">${k.omschrijving||'—'}</td></tr>`).join('')}</tbody>
+        </table>` : ''}
+    </div>`;
+  });
+
+  document.getElementById('overzicht-content').innerHTML = html;
+}
+
+// ══════════════════════════════
+//  INSTELLINGEN
+// ══════════════════════════════
+function loadInstellingen() {
+  document.getElementById('inst-km-rate').value = inst.kmRate || 0.29;
+  document.getElementById('inst-naam').value = inst.naam || '';
+  document.getElementById('inst-kenteken').value = inst.kenteken || '';
+  const tessToken = localStorage.getItem('tt_tesla_token') || '';
+  document.getElementById('inst-tesla-token').value = tessToken;
+}
+
+function saveInstellingen() {
+  inst.kmRate = parseFloat(document.getElementById('inst-km-rate').value) || 0.29;
+  inst.naam = document.getElementById('inst-naam').value;
+  inst.kenteken = document.getElementById('inst-kenteken').value;
+  const tessToken = document.getElementById('inst-tesla-token').value;
+  if (tessToken) localStorage.setItem('tt_tesla_token', tessToken);
+  save('tt_inst', inst);
+  document.getElementById('inst-alert').textContent = '✓ Opgeslagen';
+  setTimeout(() => document.getElementById('inst-alert').textContent = '', 2500);
+}
+
+async function fetchTeslaOdometer() {
+  const token = localStorage.getItem('tt_tesla_token') || document.getElementById('inst-tesla-token').value;
+  const el = document.getElementById('tesla-alert');
+  if (!token) { el.style.color = 'var(--red)'; el.textContent = 'Voer eerst een Tesla token in.'; return; }
+  el.style.color = 'var(--text-muted)'; el.textContent = 'Ophalen...';
+  try {
+    const vResp = await fetch('https://owner-api.teslamotors.com/api/1/vehicles', {
+      headers: { Authorization: 'Bearer ' + token }
+    });
+    const vData = await vResp.json();
+    const vehicle = vData.response?.[0];
+    if (!vehicle) { el.style.color = 'var(--red)'; el.textContent = 'Geen voertuig gevonden.'; return; }
+    const oResp = await fetch(`https://owner-api.teslamotors.com/api/1/vehicles/${vehicle.id}/data_request/vehicle_state`, {
+      headers: { Authorization: 'Bearer ' + token }
+    });
+    const oData = await oResp.json();
+    const odometer = oData.response?.odometer;
+    if (!odometer) { el.style.color = 'var(--red)'; el.textContent = 'Kan kilometerstand niet ophalen (auto slaapt?).'; return; }
+    const kmStand = Math.round(odometer * 1.60934);
+    el.style.color = 'var(--green)'; el.textContent = `✓ Stand: ${kmStand.toLocaleString('nl-NL')} km`;
+    kmStanden.push({ id: uid(), datum: today(), stand: kmStand, notitie: 'Tesla API (auto import)' });
+    save('tt_km', kmStanden);
+  } catch(e) {
+    el.style.color = 'var(--red)'; el.textContent = 'Fout: ' + e.message;
+  }
+}
+
+// ══════════════════════════════
+//  DATA EXPORT / IMPORT
+// ══════════════════════════════
+function exportData() {
+  const data = { kosten, kmStanden, ritten, inst, exportDate: new Date().toISOString() };
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+  a.download = `teslatrack-backup-${today()}.json`; a.click();
+}
+
+function importData() { document.getElementById('import-file').click(); }
+
+function handleImport(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = async (e) => {
+    try {
+      const data = JSON.parse(e.target.result);
+      if (data.kosten)    kosten    = data.kosten;
+      if (data.kmStanden) kmStanden = data.kmStanden;
+      if (data.ritten)    ritten    = data.ritten;
+      if (data.inst)      inst      = data.inst;
+      await saveToDrive();
+      alert('✅ Import geslaagd en opgeslagen in Drive!');
+    } catch { alert('❌ Ongeldig bestand.'); }
+  };
+  reader.readAsText(file);
+}
+
+function clearAll() {
+  if (!confirm('Weet je zeker dat je ALLE data wilt verwijderen?')) return;
+  ['tt_kosten','tt_km','tt_ritten','tt_inst','tt_tesla_token'].forEach(k => localStorage.removeItem(k));
+  kosten = []; kmStanden = []; ritten = [];
+  inst = { kmRate: 0.29, naam: '', kenteken: '' };
+  saveToDrive();
+  alert('Alle data gewist.');
+  showPage('dashboard');
+}
+
+// ══════════════════════════════
+//  HELPERS
+// ══════════════════════════════
+function showAlert(id, msg, type) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.className = 'alert ' + type;
+  el.textContent = msg;
+  setTimeout(() => { el.className = 'alert'; el.textContent = ''; }, 4000);
+}
+
+// ══════════════════════════════
+//  INIT
+// ══════════════════════════════
+document.addEventListener('DOMContentLoaded', async () => {
+  const t = today();
+  ['k-datum','km-datum','r-datum'].forEach(id => { const el = document.getElementById(id); if(el) el.value = t; });
+  loadFromLocal();
+  renderDashboard();
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('sw.js').catch(() => {});
+  }
+  let deferredPrompt;
+  window.addEventListener('beforeinstallprompt', (e) => {
+    e.preventDefault();
+    deferredPrompt = e;
+    document.getElementById('install-banner').style.display = 'flex';
+  });
+  document.getElementById('btn-install').addEventListener('click', async () => {
+    if (!deferredPrompt) return;
+    deferredPrompt.prompt();
+    const { outcome } = await deferredPrompt.userChoice;
+    deferredPrompt = null;
+    document.getElementById('install-banner').style.display = 'none';
+  });
+  document.getElementById('btn-install-close').addEventListener('click', () => {
+    document.getElementById('install-banner').style.display = 'none';
+  });
+});
+</script>
+<!-- PWA Install Banner -->
+<div id="install-banner" style="display:none;position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:14px 20px;align-items:center;gap:14px;box-shadow:0 8px 32px rgba(0,0,0,0.4);z-index:9999;max-width:340px;width:90%">
+  <span style="font-size:28px">⚡</span>
+  <div style="flex:1">
+    <div style="font-family:var(--font-display);font-weight:600;font-size:14px">Installeer TeslaTrack</div>
+    <div style="font-size:11px;color:var(--text-muted);margin-top:2px">Voeg toe aan je homescreen</div>
+  </div>
+  <button id="btn-install" class="btn btn-primary" style="padding:8px 14px;font-size:12px">Installeren</button>
+  <button id="btn-install-close" style="background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:18px;padding:0 4px">✕</button>
+</div>
+
+<style>
+/* ── Mobile responsive ── */
+@media (max-width: 640px) {
+  .sidebar {
+    display: none;
+  }
+  .main {
+    padding: 16px;
+  }
+  /* Bottom nav on mobile */
+  .mobile-nav {
+    display: flex !important;
+  }
+  .app {
+    flex-direction: column;
+    padding-bottom: 64px;
+  }
+  .kpi-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+  .chart-grid {
+    grid-template-columns: 1fr;
+  }
+  .form-grid {
+    grid-template-columns: 1fr;
+  }
+  .page-title {
+    font-size: 20px;
+  }
+  .table-wrap {
+    overflow-x: auto;
+  }
+  table {
+    min-width: 500px;
+  }
+}
+
+/* Mobile bottom navigation */
+.mobile-nav {
+  display: none;
+  position: fixed;
+  bottom: 0; left: 0; right: 0;
+  background: var(--surface);
+  border-top: 1px solid var(--border);
+  z-index: 100;
+  padding: 8px 0;
+  padding-bottom: max(8px, env(safe-area-inset-bottom));
+}
+.mobile-nav-item {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  padding: 4px 0;
+  cursor: pointer;
+  color: var(--text-muted);
+  font-size: 10px;
+  font-weight: 500;
+  transition: color 0.15s;
+  user-select: none;
+}
+.mobile-nav-item.active { color: var(--red); }
+.mobile-nav-item .icon { font-size: 20px; }
+</style>
+
+<!-- Mobile bottom nav -->
+<nav class="mobile-nav" id="mobile-nav">
+  <div class="mobile-nav-item active" onclick="showPage('dashboard')"><span class="icon">⚡</span>Dashboard</div>
+  <div class="mobile-nav-item" onclick="showPage('kosten')"><span class="icon">💳</span>Kosten</div>
+  <div class="mobile-nav-item" onclick="showPage('km')"><span class="icon">📍</span>KM-stand</div>
+  <div class="mobile-nav-item" onclick="showPage('ritten')"><span class="icon">🗺️</span>Ritten</div>
+  <div class="mobile-nav-item" onclick="showPage('overzicht')"><span class="icon">📋</span>Overzicht</div>
+</nav>
+
+</body>
+</html>
