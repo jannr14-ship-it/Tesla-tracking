@@ -6,6 +6,14 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Toptien">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="application-name" content="Toptien">
+<meta name="theme-color" content="#f5f3f9" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#12101b" media="(prefers-color-scheme: dark)">
+<meta name="description" content="De top 10 series op Netflix en de top 25 boeken van Nederland, elke week vers.">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
 <style>:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0}img{max-width:100%}[hidden]{display:none!important}</style>
 </head>
 <body>
@@ -60,6 +68,8 @@ img{display:block}
 .seg::-webkit-scrollbar{display:none}
 .chip{flex:none;padding:7px 13px;border-radius:999px;border:1px solid var(--line);font-size:13px;font-weight:600;color:var(--muted);transition:all .2s}
 .chip[aria-pressed="true"]{background:var(--fg);color:var(--bg);border-color:var(--fg)}
+.install{flex:none;display:inline-flex;align-items:center;gap:6px;padding:6px 11px;border-radius:999px;background:var(--accent);color:var(--bg);font-size:12.5px;font-weight:700}
+.install svg{width:15px;height:15px}
 .chip small{font-family:var(--f-data);font-size:11px;opacity:.7;margin-left:4px}
 
 /* hero (series) */
@@ -186,7 +196,7 @@ img{display:block}
   <header class="top">
     <div class="brand">
       <div class="logo">Top<span>tien</span></div>
-      <div class="week" id="weekLbl">Laden…</div>
+      <div style="display:flex;align-items:center;gap:10px;min-width:0"><div class="week" id="weekLbl">Laden…</div><button class="install" id="installBtn" hidden><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v11M7 10l5 5 5-5M5 20h14"/></svg>Installeer</button></div>
     </div>
     <div class="seg" id="seg" role="group" aria-label="Lijst kiezen"></div>
   </header>
@@ -465,6 +475,13 @@ function go(v){view=v;try{history.replaceState(null,'','#'+v)}catch(e){}render()
 const fromHash=()=>{const h=location.hash.slice(1);if(['series','boeken','lijst'].includes(h))view=h};
 addEventListener('hashchange',()=>{fromHash();render()});
 fromHash();setTabs();updateBadge();
+/* installeerbare app */
+let installEvt=null;const installBtn=document.getElementById('installBtn');
+const standalone=()=>matchMedia('(display-mode: standalone)').matches;
+addEventListener('beforeinstallprompt',e=>{e.preventDefault();installEvt=e;if(!standalone())installBtn.hidden=false});
+installBtn.onclick=async()=>{if(!installEvt)return;installEvt.prompt();try{await installEvt.userChoice}catch(e){}installEvt=null;installBtn.hidden=true};
+addEventListener('appinstalled',()=>{installBtn.hidden=true});
+if('serviceWorker' in navigator)addEventListener('load',()=>navigator.serviceWorker.register('sw.js').catch(()=>{}));
 fetch('data.json',{cache:'no-cache'}).then(r=>{if(!r.ok)throw new Error(r.status);return r.json()})
   .then(d=>{D=prep(d);render()})
   .catch(()=>{weekLbl.textContent='';main.innerHTML='<div class="empty"><b>De lijsten konden niet geladen worden</b>Controleer je internetverbinding en open de app opnieuw.</div>'});
