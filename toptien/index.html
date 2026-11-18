@@ -1,0 +1,474 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Toptien">
+<style>:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0}img{max-width:100%}[hidden]{display:none!important}</style>
+</head>
+<body>
+<title>Toptien</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@600;800;900&family=Instrument+Sans:wght@400;500;600;700&family=Fraunces:ital,opsz,wght@1,9..144,500;1,9..144,700&family=JetBrains+Mono:wght@500&display=swap">
+<style>
+/* Layout: one-column phone app. Sticky top bar, cinematic #1 hero, ranked rows with real artwork, bottom tab bar, detail bottom sheet. */
+:root{
+  --bg:#f5f3f9; --surface:#ffffff; --surface-2:#ece8f3; --line:#dcd6e6;
+  --fg:#191624; --muted:#6c6680;
+  --tv:#c25a00; --tv-soft:#fbe7d4; --book:#0b7a66; --book-soft:#d5efe8;
+  --up:#1f8a4c; --down:#c0392b;
+  --accent:var(--tv); --accent-soft:var(--tv-soft);
+  --rank-stroke:#c9c1d8; --skel:#e6e1ee;
+  --shadow:0 10px 30px -12px rgba(40,25,70,.28);
+  --f-rank:'Big Shoulders Display','Arial Narrow',Impact,sans-serif;
+  --f-ui:'Instrument Sans',system-ui,-apple-system,'Segoe UI',sans-serif;
+  --f-cover:'Fraunces',Georgia,'Times New Roman',serif;
+  --f-data:'JetBrains Mono',ui-monospace,Menlo,monospace;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#12101b; --surface:#1b1827; --surface-2:#242036; --line:#2e2a42;
+  --fg:#f2eee6; --muted:#9a94ae;
+  --tv:#ffb547; --tv-soft:#3a2a14; --book:#5fd8bd; --book-soft:#123a33;
+  --up:#5ad08a; --down:#ff7a6b;
+  --rank-stroke:#3d3756; --skel:#262238; --shadow:0 14px 34px -14px rgba(0,0,0,.7); color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#12101b; --surface:#1b1827; --surface-2:#242036; --line:#2e2a42;
+  --fg:#f2eee6; --muted:#9a94ae;
+  --tv:#ffb547; --tv-soft:#3a2a14; --book:#5fd8bd; --book-soft:#123a33;
+  --up:#5ad08a; --down:#ff7a6b;
+  --rank-stroke:#3d3756; --skel:#262238; --shadow:0 14px 34px -14px rgba(0,0,0,.7); color-scheme:dark}
+
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--fg);font-family:var(--f-ui);font-size:15px;line-height:1.45;-webkit-font-smoothing:antialiased;overflow-x:hidden}
+body.mode-books{--accent:var(--book);--accent-soft:var(--book-soft)}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:30;background:var(--bg)}
+button{font:inherit;color:inherit;background:none;border:0;cursor:pointer}
+button:focus-visible,a:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--accent);outline-offset:3px;border-radius:8px}
+img{display:block}
+.wrap{max-width:560px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:0 calc(96px + env(safe-area-inset-bottom,0px))}
+
+/* top bar */
+.top{position:sticky;top:env(safe-area-inset-top,0px);z-index:20;background:color-mix(in srgb,var(--bg) 88%,transparent);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);margin-inline:calc(-1 * max(16px,env(safe-area-inset-left,0px)));padding:12px max(16px,env(safe-area-inset-left,0px)) 10px}
+.brand{display:flex;align-items:baseline;justify-content:space-between;gap:12px}
+.logo{font-family:var(--f-rank);font-weight:900;font-size:30px;letter-spacing:.01em;text-transform:uppercase;line-height:1}
+.logo span{color:var(--accent);transition:color .3s}
+.week{font-family:var(--f-data);font-size:11px;color:var(--muted);letter-spacing:.04em;text-transform:uppercase;text-align:right}
+.seg{display:flex;gap:6px;margin-top:12px;overflow-x:auto;scrollbar-width:none}
+.seg::-webkit-scrollbar{display:none}
+.chip{flex:none;padding:7px 13px;border-radius:999px;border:1px solid var(--line);font-size:13px;font-weight:600;color:var(--muted);transition:all .2s}
+.chip[aria-pressed="true"]{background:var(--fg);color:var(--bg);border-color:var(--fg)}
+.chip small{font-family:var(--f-data);font-size:11px;opacity:.7;margin-left:4px}
+
+/* hero (series) */
+.hero{position:relative;margin-top:14px;border-radius:22px;overflow:hidden;box-shadow:var(--shadow);cursor:pointer;isolation:isolate;text-align:left;width:100%;display:block;background:#0c0a14;color:#fff}
+.hero .pic{width:100%;max-width:100%;aspect-ratio:16/10;object-fit:cover}
+.hero .shade{position:absolute;inset:0 0 auto 0;aspect-ratio:16/10;background:linear-gradient(180deg,rgba(12,10,20,.25) 0%,rgba(12,10,20,0) 30%,rgba(12,10,20,0) 55%,#0c0a14 100%);z-index:1}
+.hero .meta{position:relative;margin-top:-44px;padding:0 20px 20px;z-index:2}
+.hero .big1{position:absolute;top:8px;left:14px;z-index:2;font-family:var(--f-rank);font-weight:900;font-size:120px;line-height:.8;color:transparent;-webkit-text-stroke:2px rgba(255,255,255,.9);text-shadow:0 0 40px rgba(0,0,0,.3)}
+.eyebrow{font-family:var(--f-data);font-size:11px;letter-spacing:.08em;text-transform:uppercase;opacity:.85}
+.hero h2{font-family:var(--f-rank);font-weight:800;font-size:42px;line-height:.92;margin:6px 0 8px;text-transform:uppercase;text-wrap:balance}
+.hero p{margin:0;font-size:14px;opacity:.9;max-width:44ch;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+.stat{display:inline-flex;align-items:baseline;gap:6px;margin-top:12px;padding:6px 10px;border-radius:10px;background:rgba(255,255,255,.14);backdrop-filter:blur(6px);font-family:var(--f-data);font-size:12px}
+.stat b{font-family:var(--f-rank);font-size:22px;font-weight:800;letter-spacing:.02em}
+
+/* hero (books) */
+.bhero{position:relative;margin-top:14px;border-radius:22px;overflow:hidden;box-shadow:var(--shadow);cursor:pointer;isolation:isolate;width:100%;display:grid;grid-template-columns:minmax(0,1fr) 128px;gap:16px;align-items:end;padding:22px 20px 20px;text-align:left;color:#fff;background:#14211d}
+.bhero .blur{position:absolute;inset:-30px;z-index:-1;background-size:cover;background-position:center;filter:blur(26px) saturate(1.3) brightness(.55);transform:scale(1.1)}
+.bhero .cv{width:128px;aspect-ratio:2/3;border-radius:4px 10px 10px 4px;box-shadow:0 18px 40px -12px rgba(0,0,0,.7);object-fit:cover;justify-self:end;transform:rotate(2.5deg)}
+.bhero .big1{font-family:var(--f-rank);font-weight:900;font-size:96px;line-height:.78;color:transparent;-webkit-text-stroke:2px rgba(255,255,255,.9)}
+.bhero h2{font-family:var(--f-cover);font-style:italic;font-weight:700;font-size:32px;line-height:1.02;margin:12px 0 4px;text-wrap:balance}
+.bhero .au{font-size:14px;opacity:.85}
+.bhero p{grid-column:1/-1;margin:4px 0 0;font-size:14px;opacity:.88;line-height:1.5}
+
+.sec-h{display:flex;justify-content:space-between;align-items:baseline;gap:10px;margin:0 0 10px}
+.sec-h h3{margin:0;font-size:13px;letter-spacing:.08em;text-transform:uppercase;font-weight:700}
+.sec-h small{font-size:12px;color:var(--muted)}
+
+/* list */
+.list{list-style:none;margin:18px 0 0;padding:0;display:flex;flex-direction:column}
+.row{display:grid;grid-template-columns:50px 104px minmax(0,1fr) 28px;align-items:center;gap:12px;padding:12px 0;border-bottom:1px solid var(--line);width:100%;text-align:left;cursor:pointer;animation:rise .5s both}
+.row.book{grid-template-columns:50px 58px minmax(0,1fr) 28px}
+.rk{display:flex;flex-direction:column;align-items:flex-end;gap:4px}
+.rk .n{font-family:var(--f-rank);font-weight:900;font-size:52px;line-height:.8;color:transparent;-webkit-text-stroke:1.5px var(--rank-stroke);letter-spacing:-.02em}
+.row:hover .n{-webkit-text-stroke-color:var(--accent)}
+.mv{font-family:var(--f-data);font-size:10px;line-height:1}
+.mv.up{color:var(--up)} .mv.down{color:var(--down)} .mv.new{color:var(--accent)}
+.thumb{width:104px;aspect-ratio:16/9;border-radius:8px;object-fit:cover;background:var(--skel);max-width:100%}
+.row.book .thumb{width:58px;aspect-ratio:2/3;border-radius:3px 7px 7px 3px;box-shadow:0 4px 10px -4px rgba(0,0,0,.35)}
+.row .t{font-weight:700;font-size:15px;line-height:1.2;text-wrap:balance}
+.row.book .t{font-family:var(--f-cover);font-style:italic;font-weight:700;font-size:16.5px}
+.row .s{font-size:12.5px;color:var(--muted);margin-top:2px}
+.bar{height:4px;border-radius:4px;background:var(--surface-2);margin-top:8px;overflow:hidden}
+.bar i{display:block;height:100%;border-radius:4px;background:var(--accent);transform-origin:left;animation:grow .9s cubic-bezier(.2,.8,.2,1) both}
+.tags{display:flex;gap:5px;flex-wrap:wrap;margin-top:6px}
+.tag{font-size:10.5px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;padding:2px 7px;border-radius:999px;background:var(--accent-soft);color:var(--accent)}
+.tag.ghost{background:transparent;border:1px solid var(--line);color:var(--muted)}
+.save{width:28px;height:28px;display:grid;place-items:center;color:var(--muted)}
+.save svg{width:20px;height:20px}
+.save[aria-pressed="true"]{color:var(--accent)}
+.save[aria-pressed="true"] path{fill:currentColor}
+@keyframes rise{from{opacity:.001;transform:translateY(10px)}to{opacity:1;transform:none}}
+@keyframes grow{from{transform:scaleX(0)}to{transform:scaleX(1)}}
+
+/* skeleton */
+.sk{background:var(--skel);border-radius:10px;animation:pulse 1.3s ease-in-out infinite}
+@keyframes pulse{50%{opacity:.55}}
+
+.surprise{margin-top:22px;width:100%;display:flex;align-items:center;justify-content:center;gap:10px;padding:15px;border-radius:16px;background:var(--fg);color:var(--bg);font-weight:700;font-size:15px}
+.surprise svg{width:18px;height:18px}
+.src{margin-top:18px;font-size:12px;color:var(--muted);line-height:1.6}
+.src a{color:inherit}
+.empty{margin-top:30px;padding:28px 20px;border:1.5px dashed var(--line);border-radius:18px;text-align:center;color:var(--muted)}
+.empty b{display:block;color:var(--fg);font-size:17px;margin-bottom:6px}
+.mine-h{font-family:var(--f-rank);font-weight:800;font-size:40px;text-transform:uppercase;line-height:1;margin:18px 0 4px}
+.mine-group{margin-top:18px}
+.done{opacity:.55}
+.done .t{text-decoration:line-through}
+
+/* tab bar */
+.tabs{position:fixed;left:0;right:0;bottom:0;z-index:25;background:color-mix(in srgb,var(--surface) 92%,transparent);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);border-top:1px solid var(--line);padding:8px max(16px,env(safe-area-inset-right,0px)) calc(8px + env(safe-area-inset-bottom,0px)) max(16px,env(safe-area-inset-left,0px))}
+.tabs-in{max-width:560px;margin:0 auto;display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
+.tab{display:flex;flex-direction:column;align-items:center;gap:3px;padding:6px 0;border-radius:12px;font-size:11.5px;font-weight:600;color:var(--muted);position:relative}
+.tab svg{width:23px;height:23px}
+.tab[aria-current="page"]{color:var(--fg)}
+.tab[aria-current="page"]::after{content:"";position:absolute;top:-9px;width:28px;height:3px;border-radius:0 0 3px 3px;background:var(--accent)}
+.badge{position:absolute;top:2px;left:calc(50% + 8px);min-width:17px;height:17px;padding:0 5px;border-radius:9px;background:var(--accent);color:var(--bg);font-size:10.5px;font-weight:700;line-height:17px;text-align:center}
+
+/* sheet */
+.scrim{position:fixed;inset:0;z-index:40;background:rgba(10,8,18,.55);opacity:0;pointer-events:none;transition:opacity .25s}
+.scrim.on{opacity:1;pointer-events:auto}
+.sheet{position:fixed;left:0;right:0;bottom:0;z-index:41;max-width:560px;margin:0 auto;background:var(--surface);border-radius:24px 24px 0 0;transform:translateY(105%);transition:transform .38s cubic-bezier(.2,.9,.25,1);max-height:92%;overflow-y:auto;padding:10px max(20px,env(safe-area-inset-right,0px)) calc(24px + env(safe-area-inset-bottom,0px)) max(20px,env(safe-area-inset-left,0px))}
+.sheet.on{transform:none}
+.grab{width:40px;height:5px;border-radius:3px;background:var(--line);margin:0 auto 14px}
+.sh-wide{width:100%;max-width:100%;aspect-ratio:16/9;object-fit:cover;border-radius:14px;margin-bottom:14px}
+.sh-top{display:grid;grid-template-columns:110px minmax(0,1fr);gap:16px;align-items:end}
+.sh-top.tv{grid-template-columns:minmax(0,1fr)}
+.sh-cover{width:110px;aspect-ratio:2/3;border-radius:4px 10px 10px 4px;box-shadow:var(--shadow);object-fit:cover}
+.sh-rank{font-family:var(--f-rank);font-weight:900;font-size:54px;line-height:.85;color:var(--accent)}
+.sh-title{font-weight:700;font-size:21px;line-height:1.15;margin:6px 0 2px;text-wrap:balance}
+.sh-sub{color:var(--muted);font-size:13.5px}
+.sh-blurb{margin:16px 0 0;font-size:15px;line-height:1.55;max-width:60ch}
+.facts{display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:8px;margin-top:16px}
+.fact{background:var(--surface-2);border-radius:12px;padding:10px 12px;min-width:0}
+.fact span{display:block;font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em}
+.fact b{font-family:var(--f-data);font-size:14px;font-weight:500;font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
+.fact b.txt{font-family:var(--f-ui);font-weight:600}
+.acts{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:16px}
+.btn{padding:13px;border-radius:14px;font-weight:700;font-size:14px;text-align:center;border:1.5px solid var(--line);text-decoration:none;color:var(--fg);display:flex;align-items:center;justify-content:center;gap:7px}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--bg)}
+.btn.wide{grid-column:1/-1}
+
+/* surprise overlay */
+.reveal{position:fixed;inset:0;z-index:50;display:grid;place-items:center;background:rgba(10,8,18,.86);opacity:0;pointer-events:none;transition:opacity .25s;padding:24px}
+.reveal.on{opacity:1;pointer-events:auto}
+.reveal .card{width:min(300px,80vw);text-align:center;color:#fff}
+.reveal .rimg{width:100%;max-width:100%;border-radius:16px;box-shadow:0 30px 60px -20px rgba(0,0,0,.8);object-fit:cover;aspect-ratio:16/9}
+.reveal .rimg.book{aspect-ratio:2/3;width:62%;margin:0 auto;border-radius:6px 14px 14px 6px}
+.reveal .rt{font-family:var(--f-rank);font-weight:800;font-size:30px;text-transform:uppercase;margin-top:16px;line-height:1}
+.reveal .rs{font-size:13px;opacity:.75;margin-top:4px}
+.reveal .btn{margin-top:12px;color:#fff;border-color:rgba(255,255,255,.3)}
+.landed .rimg{animation:pop .45s cubic-bezier(.3,1.6,.5,1)}
+@keyframes pop{0%{transform:scale(.9)}100%{transform:scale(1)}}
+
+/* generated fallback cover */
+.gen{position:relative;overflow:hidden;display:block}
+.gen .pa{position:absolute;top:8%;left:10%;right:10%;font-family:var(--f-ui);font-weight:700;font-size:6.5px;letter-spacing:.14em;text-transform:uppercase}
+.gen .pt{position:absolute;inset:auto 10% 12% 10%;font-family:var(--f-cover);font-style:italic;font-weight:700;line-height:1;text-wrap:balance}
+
+@media (prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important}}
+@media (max-width:370px){.row{grid-template-columns:40px 88px minmax(0,1fr) 26px;gap:10px}.thumb{width:88px}.rk .n{font-size:44px}.row.book{grid-template-columns:40px 52px minmax(0,1fr) 26px}.row.book .thumb{width:52px}}
+</style>
+
+<div class="wrap">
+  <header class="top">
+    <div class="brand">
+      <div class="logo">Top<span>tien</span></div>
+      <div class="week" id="weekLbl">Laden…</div>
+    </div>
+    <div class="seg" id="seg" role="group" aria-label="Lijst kiezen"></div>
+  </header>
+  <main id="main">
+    <div class="sk" style="margin-top:14px;aspect-ratio:4/3;border-radius:22px;max-width:100%"></div>
+    <div class="sk" style="margin-top:18px;height:64px"></div>
+    <div class="sk" style="margin-top:12px;height:64px"></div>
+    <div class="sk" style="margin-top:12px;height:64px"></div>
+  </main>
+</div>
+
+<nav class="tabs" aria-label="Hoofdmenu">
+  <div class="tabs-in">
+    <button class="tab" data-view="series" aria-current="page">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="12" rx="2"/><path d="M8 21h8M12 17v4M10 9l4 2-4 2z"/></svg>
+      Series
+    </button>
+    <button class="tab" data-view="boeken">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H20v15H6.5A2.5 2.5 0 0 0 4 20.5z"/><path d="M4 20.5A2.5 2.5 0 0 0 6.5 23H20v-5"/></svg>
+      Boeken
+    </button>
+    <button class="tab" data-view="lijst">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h12v18l-6-4-6 4z"/></svg>
+      Mijn lijst
+      <span class="badge" id="badge" hidden>0</span>
+    </button>
+  </div>
+</nav>
+
+<div class="scrim" id="scrim"></div>
+<section class="sheet" id="sheet" role="dialog" aria-modal="true" aria-labelledby="shTitle" tabindex="-1"></section>
+<div class="reveal" id="reveal" role="dialog" aria-modal="true" aria-label="Verrassing"><div class="card" id="revealCard"></div></div>
+
+<script>
+/* ---------- state ---------- */
+let D=null, view='series', bookFilter='all';
+const store={
+  get(k,d){try{const v=localStorage.getItem(k);return v?JSON.parse(v):d}catch(e){return d}},
+  set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}
+};
+// saved: key -> snapshot {kind,t,s,a,b,at,done}
+let saved=store.get('toptien.saved2',{});
+let sub=store.get('toptien.sub','en');
+const persist=()=>{store.set('toptien.saved2',saved);updateBadge()};
+const keyOf=it=>(it.kind==='book'?'b|'+it.t+'|'+it.a:'tv|'+it.t+'|'+it.s);
+
+const main=document.getElementById('main'),seg=document.getElementById('seg'),weekLbl=document.getElementById('weekLbl');
+const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const fmt=v=>v.toLocaleString('nl-NL',{minimumFractionDigits:1,maximumFractionDigits:1});
+const MONTHS=['jan','feb','mrt','apr','mei','jun','jul','aug','sep','okt','nov','dec'];
+const nlDate=iso=>{const d=new Date(iso);return isNaN(d)?'':d.getDate()+' '+MONTHS[d.getMonth()]};
+
+/* ---------- images ---------- */
+function hash(s){let h=2166136261;for(const c of s){h^=c.charCodeAt(0);h=Math.imul(h,16777619)}return h>>>0}
+const PAL=[['#c8553d','#f6e7cb','#1f1a17'],['#1d3557','#e9d8a6','#f1faee'],['#2a9d8f','#264653','#f4f1de'],['#6d597a','#eaac8b','#fdf6ec'],['#bc4749','#f2e8cf','#386641'],['#0b6e4f','#f3e9d2','#fffaf0'],['#3d405b','#f2cc8f','#f4f1de']];
+function genCover(it,cls,fs){
+  const [c1,c2,ink]=PAL[hash(it.t+(it.a||it.s||''))%PAL.length];
+  const el=document.createElement('span');el.className='gen '+cls;
+  el.style.background=`linear-gradient(180deg,${c1} 0 60%,${c2} 60% 63%,${c1} 63%)`;el.style.color=ink;
+  el.innerHTML=`<span class="pa">${esc(it.a||it.s||'')}</span><span class="pt" style="font-size:${fs}px">${esc(it.t)}</span>`;
+  el.setAttribute('role','img');el.setAttribute('aria-label',it.t);
+  return el;
+}
+function pic(it,cls,fs=10){
+  if(!it.img) return genCover(it,cls,fs);
+  const im=new Image();im.className=cls;im.src=it.img;im.alt='';im.loading='lazy';im.decoding='async';
+  im.onerror=()=>im.replaceWith(genCover(it,cls,fs));
+  return im;
+}
+
+/* ---------- icons ---------- */
+const ICON_SAVE='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M6 3h12v18l-6-4-6 4z"/></svg>';
+const ICON_DICE='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="4"/><circle cx="8.5" cy="8.5" r="1" fill="currentColor"/><circle cx="15.5" cy="15.5" r="1" fill="currentColor"/><circle cx="12" cy="12" r="1" fill="currentColor"/></svg>';
+
+/* ---------- data ---------- */
+function prep(d){
+  for(const k of ['en','int']) d.series[k].forEach(x=>{x.kind='tv';x.list=k;x.desc=x.b||x.syn||''});
+  d.books.items.forEach(x=>{x.kind='book';x.desc=x.b||''});
+  return d;
+}
+const allItems=()=>D?[...D.series.en,...D.series.int,...D.books.items]:[];
+const findCurrent=key=>allItems().find(x=>keyOf(x)===key);
+
+/* ---------- views ---------- */
+function setTabs(){document.querySelectorAll('.tab').forEach(t=>{if(t.dataset.view===view)t.setAttribute('aria-current','page');else t.removeAttribute('aria-current')})}
+function chip(label,pressed,on,count){
+  const b=document.createElement('button');b.className='chip';b.setAttribute('aria-pressed',pressed);
+  b.innerHTML=esc(label)+(count!=null?`<small>${count}</small>`:'');b.onclick=on;return b;
+}
+function render(){
+  document.body.classList.toggle('mode-books',view==='boeken');setTabs();
+  if(!D)return;
+  main.innerHTML='';seg.innerHTML='';
+  if(view==='lijst'){weekLbl.textContent='Bewaard op dit toestel';seg.hidden=true;return renderMine()}
+  seg.hidden=false;
+  if(view==='series') return renderSeries();
+  renderBooks();
+}
+
+function renderSeries(){
+  for(const [k,l] of [['en','Engelstalig'],['int','Internationaal']]) seg.appendChild(chip(l,sub===k,()=>{sub=k;store.set('toptien.sub',k);render()}));
+  weekLbl.textContent='Netflix · '+D.series.week;
+  const items=D.series[sub];
+  main.appendChild(seriesHero(items[0]));
+  const ol=document.createElement('ol');ol.className='list';
+  items.slice(1).forEach((it,i)=>ol.appendChild(row(it,items[0].v,i)));
+  main.appendChild(ol);
+  main.appendChild(surpriseBtn('Wat kijk ik vanavond?',items));
+  source(`Bron: <a href="https://www.netflix.com/tudum/top10" target="_blank" rel="noopener">Netflix Top 10</a>, wereldwijd, ${esc(D.series.week)}. Views = kijkuren gedeeld door de speelduur. Beelden: Netflix.`);
+}
+function seriesHero(it){
+  const b=document.createElement('button');b.className='hero';b.setAttribute('aria-label','Nummer 1: '+it.t);
+  b.appendChild(pic(it,'pic'));
+  b.insertAdjacentHTML('beforeend',`<div class="shade"></div><div class="big1" aria-hidden="true">1</div>
+    <div class="meta"><div class="eyebrow">Nummer 1 · ${esc(it.s)} · ${weeksTxt(it.weeks)}</div>
+    <h2>${esc(it.t)}</h2>${it.desc?`<p>${esc(it.desc)}</p>`:''}
+    <span class="stat"><b>${fmt(it.v)}</b> mln views</span></div>`);
+  b.onclick=()=>openSheet(it);return b;
+}
+const weeksTxt=w=>w===1?'nieuw in de top 10':w+'e week in de top 10';
+
+function renderBooks(){
+  const items=D.books.items;
+  const nNew=items.filter(x=>x.new).length, nUp=items.filter(x=>x.move==='up'&&!x.new).length;
+  seg.appendChild(chip('Top 25',bookFilter==='all',()=>{bookFilter='all';render()}));
+  seg.appendChild(chip('Nieuw',bookFilter==='new',()=>{bookFilter='new';render()},nNew));
+  seg.appendChild(chip('Stijgers',bookFilter==='up',()=>{bookFilter='up';render()},nUp));
+  weekLbl.textContent='Bestseller 60 · '+D.books.week;
+  const list=bookFilter==='new'?items.filter(x=>x.new):bookFilter==='up'?items.filter(x=>x.move==='up'&&!x.new):items;
+  let rest=list;
+  if(bookFilter==='all'){main.appendChild(bookHero(items[0]));rest=items.slice(1)}
+  else main.insertAdjacentHTML('beforeend',`<div class="sec-h" style="margin-top:18px"><h3>${bookFilter==='new'?'Nieuw binnen deze week':'Gestegen ten opzichte van vorige week'}</h3><small>${list.length} boeken</small></div>`);
+  const ol=document.createElement('ol');ol.className='list';if(bookFilter!=='all')ol.style.marginTop='0';
+  rest.forEach((it,i)=>ol.appendChild(row(it,null,i)));
+  main.appendChild(ol);
+  main.appendChild(surpriseBtn('Wat lees ik hierna?',items));
+  source(`Bron: <a href="https://www.debestseller60.nl/" target="_blank" rel="noopener">De Bestseller 60</a> (CPNB), ${esc(D.books.week)}: de 25 bestverkochte boeken van Nederland. Covers en samenvattingen: Bestseller 60.`);
+}
+function bookHero(it){
+  const b=document.createElement('button');b.className='bhero';b.setAttribute('aria-label','Nummer 1: '+it.t);
+  const blur=document.createElement('div');blur.className='blur';if(it.img)blur.style.backgroundImage=`url("${it.img}")`;
+  const left=document.createElement('div');
+  left.innerHTML=`<div class="big1" aria-hidden="true">1</div><div class="eyebrow" style="margin-top:10px">${it.new?'Nieuw binnen · ':''}Bestseller 60</div><h2>${esc(it.t)}</h2><div class="au">${esc(it.a)}</div>`;
+  b.append(blur,left,pic(it,'cv',16));
+  if(it.desc)b.insertAdjacentHTML('beforeend',`<p>${esc(it.desc)}</p>`);
+  b.onclick=()=>openSheet(it);return b;
+}
+function moveHTML(it){
+  if(it.kind==='book'){
+    if(it.new)return '<span class="mv new">NIEUW</span>';
+    if(it.move==='up')return '<span class="mv up" aria-label="gestegen">▲</span>';
+    if(it.move==='down')return '<span class="mv down" aria-label="gedaald">▼</span>';
+    return '';
+  }
+  return it.weeks===1?'<span class="mv new">NIEUW</span>':'';
+}
+function row(it,max,i,mine){
+  const li=document.createElement('li');
+  const b=document.createElement('div');b.className='row'+(it.kind==='book'?' book':'');b.style.animationDelay=Math.min(i,12)*40+'ms';
+  b.setAttribute('role','button');b.tabIndex=0;
+  const rk=document.createElement('div');rk.className='rk';
+  rk.innerHTML=mine?'':`<span class="n" aria-hidden="true">${it.r}</span>${moveHTML(it)}`;
+  const info=document.createElement('div');info.style.minWidth='0';
+  const subl=it.kind==='book'?it.a:(it.s+(it.v!=null?' · '+fmt(it.v)+' mln views':''));
+  let tags='';
+  if(it.kind==='tv'&&!mine&&it.weeks) tags=`<div class="tags"><span class="tag ghost">${it.weeks===1?'1e week':it.weeks+' weken'}</span></div>`;
+  info.innerHTML=`<div class="t">${esc(it.t)}</div><div class="s">${esc(subl)}</div>`+
+    (max&&it.v?`<div class="bar"><i style="width:${(it.v/max*100).toFixed(1)}%;animation-delay:${150+i*40}ms"></i></div>`:'')+tags;
+  b.append(rk,pic(it,'thumb',8),info,saveBtn(it));
+  b.onclick=e=>{if(!e.target.closest('.save'))openSheet(it)};
+  b.onkeydown=e=>{if((e.key==='Enter'||e.key===' ')&&!e.target.closest('.save')){e.preventDefault();openSheet(it)}};
+  li.appendChild(b);return li;
+}
+function saveBtn(it){
+  const k=keyOf(it);const sv=document.createElement('button');sv.className='save';sv.innerHTML=ICON_SAVE;
+  const sync=()=>{sv.setAttribute('aria-pressed',!!saved[k]);sv.setAttribute('aria-label',(saved[k]?'Verwijder ':'Bewaar ')+it.t)};
+  sync();sv.onclick=e=>{e.stopPropagation();toggleSave(it);sync();if(view==='lijst')render()};
+  return sv;
+}
+function toggleSave(it){const k=keyOf(it);if(saved[k])delete saved[k];else saved[k]={kind:it.kind,t:it.t,s:it.s||'',a:it.a||'',b:it.desc||'',at:Date.now(),done:false};persist()}
+function surpriseBtn(label,pool){const s=document.createElement('button');s.className='surprise';s.innerHTML=ICON_DICE+esc(label);s.onclick=()=>surprise(pool);return s}
+function source(h){const p=document.createElement('p');p.className='src';p.innerHTML=h+(D.updated?` Bijgewerkt op ${nlDate(D.updated)}.`:'');main.appendChild(p)}
+
+function renderMine(){
+  main.insertAdjacentHTML('beforeend','<h1 class="mine-h">Mijn lijst</h1>');
+  const keys=Object.keys(saved);
+  if(!keys.length){main.insertAdjacentHTML('beforeend','<div class="empty"><b>Nog niets bewaard</b>Tik op het bladwijzertje naast een serie of boek. Wat je bewaart, blijft op deze telefoon staan, ook als de lijsten volgende week veranderen.</div>');return}
+  for(const [k,label] of [['tv','Kijken'],['book','Lezen']]){
+    const list=keys.filter(x=>saved[x].kind===k).sort((a,b)=>(saved[a].done-saved[b].done)||(saved[a].at-saved[b].at));
+    if(!list.length)continue;
+    const g=document.createElement('section');g.className='mine-group';
+    g.innerHTML=`<div class="sec-h"><h3>${label}</h3><small>${list.filter(x=>saved[x].done).length} van ${list.length} ${k==='tv'?'gezien':'gelezen'}</small></div>`;
+    const ol=document.createElement('ol');ol.className='list';ol.style.marginTop='0';
+    list.forEach((key,i)=>{
+      const cur=findCurrent(key);const snap=saved[key];
+      const it=cur||{kind:snap.kind,t:snap.t,s:snap.s,a:snap.a,desc:snap.b,img:''};
+      const li=row(it,null,i,true);
+      if(cur)li.querySelector('.rk').innerHTML=`<span class="mv new">#${cur.r}</span>`;
+      if(snap.done)li.firstChild.classList.add('done');
+      ol.appendChild(li);
+    });
+    g.appendChild(ol);main.appendChild(g);
+  }
+}
+function updateBadge(){const n=Object.keys(saved).length;const b=document.getElementById('badge');b.hidden=!n;b.textContent=n}
+
+/* ---------- sheet ---------- */
+const sheet=document.getElementById('sheet'),scrim=document.getElementById('scrim');let lastFocus=null;
+function openSheet(it){
+  lastFocus=document.activeElement;const isB=it.kind==='book';const k=keyOf(it);
+  const top1=isB?null:(D.series[it.list]||[])[0];
+  const facts=[];
+  if(it.r)facts.push(['Positie','#'+it.r]);
+  if(!isB){
+    if(it.v!=null)facts.push(['Views',fmt(it.v)+' mln']);
+    if(it.weeks)facts.push(['In de top 10',it.weeks===1?'1e week':it.weeks+' weken']);
+    if(top1&&it.r>1)facts.push(['Achter #1','−'+fmt(top1.v-it.v)+' mln']);
+  } else {
+    if(it.r)facts.push(['Trend',it.new?'Nieuw':it.move==='up'?'▲ gestegen':it.move==='down'?'▼ gedaald':'gelijk',1]);
+    if(it.pub)facts.push(['Uitgever',it.pub,1]);
+    if(it.price)facts.push(['Prijs',it.price]);
+    if(it.date)facts.push(['Verschenen',it.date]);
+  }
+  const link=isB?`https://www.google.com/search?q=${encodeURIComponent((it.isbn||'')+' '+it.t+' '+it.a)}`:(it.vid?`https://www.netflix.com/title/${it.vid}`:`https://www.netflix.com/search?q=${encodeURIComponent(it.t)}`);
+  sheet.innerHTML=`<div class="grab"></div><div class="sh-top ${isB?'':'tv'}"></div>
+    ${it.desc?`<p class="sh-blurb">${esc(it.desc)}</p>`:''}
+    <div class="facts">${facts.map(([l,v,t])=>`<div class="fact"><span>${l}</span><b class="${t?'txt':''}">${esc(v)}</b></div>`).join('')}</div>
+    <div class="acts"><button class="btn primary" id="shSave"></button><button class="btn" id="shDone"></button>
+    <a class="btn wide" href="${link}" target="_blank" rel="noopener">${isB?'Zoek dit boek':'Open in Netflix'} ↗</a></div>`;
+  const top=sheet.querySelector('.sh-top');
+  if(isB) top.appendChild(pic(it,'sh-cover',14)); else if(it.img) sheet.insertBefore(pic(it,'sh-wide'),top);
+  top.insertAdjacentHTML('beforeend',`<div>${it.r?`<div class="sh-rank">#${it.r}</div>`:''}<div class="sh-title" id="shTitle">${esc(it.t)}</div><div class="sh-sub">${esc(isB?it.a:it.s)}${it.r?'<br>'+(isB?'Bestseller 60 · '+esc(D.books.week):'Netflix · '+(it.list==='en'?'Engelstalig':'Internationaal')):''}</div></div>`);
+  const sBtn=sheet.querySelector('#shSave'),dBtn=sheet.querySelector('#shDone');
+  const sync=()=>{sBtn.textContent=saved[k]?'✓ Op mijn lijst':'+ Mijn lijst';dBtn.textContent=saved[k]?.done?(isB?'Gelezen ✓':'Gezien ✓'):(isB?'Markeer gelezen':'Markeer gezien')};
+  sBtn.onclick=()=>{toggleSave(it);sync();refreshBehind()};
+  dBtn.onclick=()=>{if(!saved[k])toggleSave(it);saved[k].done=!saved[k].done;persist();sync();refreshBehind()};
+  sync();sheet.style.setProperty('--accent',isB?'var(--book)':'var(--tv)');
+  sheet.classList.add('on');scrim.classList.add('on');sheet.scrollTop=0;setTimeout(()=>sheet.focus(),50);
+}
+function refreshBehind(){const y=scrollY;render();scrollTo(0,y)}
+function closeSheet(){sheet.classList.remove('on');scrim.classList.remove('on');lastFocus?.focus?.()}
+scrim.onclick=closeSheet;
+document.addEventListener('keydown',e=>{if(e.key==='Escape'){closeSheet();closeReveal()}});
+let sy=null;
+sheet.addEventListener('touchstart',e=>{if(sheet.scrollTop<=0)sy=e.touches[0].clientY},{passive:true});
+sheet.addEventListener('touchmove',e=>{if(sy==null)return;const d=e.touches[0].clientY-sy;if(d>0)sheet.style.transform=`translateY(${d}px)`},{passive:true});
+sheet.addEventListener('touchend',e=>{if(sy==null)return;const d=e.changedTouches[0].clientY-sy;sheet.style.transform='';sy=null;if(d>90)closeSheet()});
+
+/* ---------- surprise ---------- */
+const reveal=document.getElementById('reveal'),rcard=document.getElementById('revealCard');let spinT=null;
+function surprise(pool){
+  const reduce=matchMedia('(prefers-reduced-motion: reduce)').matches;
+  reveal.classList.add('on');
+  let i=0;const steps=reduce?0:14+Math.floor(Math.random()*6);
+  const pick=pool[Math.floor(Math.random()*pool.length)];
+  const show=(it,final)=>{
+    rcard.className='card'+(final?' landed':'');rcard.innerHTML='';
+    rcard.appendChild(pic(it,'rimg'+(it.kind==='book'?' book':''),18));
+    rcard.insertAdjacentHTML('beforeend',`<div class="rt">${final?esc(it.t):'&nbsp;'}</div><div class="rs">${final?`#${it.r} · ${esc(it.kind==='book'?it.a:it.s)}`:'kiezen…'}</div>`);
+    if(final){
+      const a=document.createElement('button');a.className='btn';a.style.width='100%';a.textContent='Bekijk details';a.onclick=()=>{closeReveal();openSheet(it)};
+      const again=document.createElement('button');again.className='btn';again.style.width='100%';again.textContent='Nog een keer';again.onclick=()=>surprise(pool);
+      rcard.append(a,again);
+    }
+  };
+  clearTimeout(spinT);
+  const tick=()=>{if(i>=steps){show(pick,true);return}show(pool[i%pool.length],false);i++;spinT=setTimeout(tick,50+i*i*1.6)};
+  tick();
+}
+function closeReveal(){clearTimeout(spinT);reveal.classList.remove('on')}
+reveal.onclick=e=>{if(e.target===reveal)closeReveal()};
+
+/* ---------- nav + boot ---------- */
+document.querySelectorAll('.tab').forEach(t=>t.onclick=()=>go(t.dataset.view));
+function go(v){view=v;try{history.replaceState(null,'','#'+v)}catch(e){}render();scrollTo({top:0})}
+const fromHash=()=>{const h=location.hash.slice(1);if(['series','boeken','lijst'].includes(h))view=h};
+addEventListener('hashchange',()=>{fromHash();render()});
+fromHash();setTabs();updateBadge();
+fetch('data.json',{cache:'no-cache'}).then(r=>{if(!r.ok)throw new Error(r.status);return r.json()})
+  .then(d=>{D=prep(d);render()})
+  .catch(()=>{weekLbl.textContent='';main.innerHTML='<div class="empty"><b>De lijsten konden niet geladen worden</b>Controleer je internetverbinding en open de app opnieuw.</div>'});
+</script>
+
+</body>
+</html>
