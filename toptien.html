@@ -1,0 +1,513 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Toptien">
+<style>:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0}img{max-width:100%}[hidden]{display:none!important}</style>
+</head>
+<body>
+<title>Toptien</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@600;800;900&family=Instrument+Sans:wght@400;500;600;700&family=Fraunces:ital,opsz,wght@1,9..144,500;1,9..144,700&family=JetBrains+Mono:wght@500&display=swap">
+<style>
+/* Layout: one-column phone app. Sticky top bar, huge #1 "marquee" hero, ranked rows with generative posters/covers, bottom tab bar, detail bottom sheet. */
+:root{
+  --bg:#f5f3f9; --surface:#ffffff; --surface-2:#ece8f3; --line:#dcd6e6;
+  --fg:#191624; --muted:#6c6680;
+  --tv:#c25a00; --tv-soft:#fbe7d4; --book:#0b7a66; --book-soft:#d5efe8;
+  --accent:var(--tv); --accent-soft:var(--tv-soft);
+  --rank-stroke:#c9c1d8;
+  --shadow:0 10px 30px -12px rgba(40,25,70,.25);
+  --f-rank:'Big Shoulders Display','Arial Narrow',Impact,sans-serif;
+  --f-ui:'Instrument Sans',system-ui,-apple-system,'Segoe UI',sans-serif;
+  --f-cover:'Fraunces',Georgia,'Times New Roman',serif;
+  --f-data:'JetBrains Mono',ui-monospace,Menlo,monospace;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#12101b; --surface:#1b1827; --surface-2:#242036; --line:#2e2a42;
+  --fg:#f2eee6; --muted:#9a94ae;
+  --tv:#ffb547; --tv-soft:#3a2a14; --book:#5fd8bd; --book-soft:#123a33;
+  --rank-stroke:#3d3756; --shadow:0 14px 34px -14px rgba(0,0,0,.7); color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#12101b; --surface:#1b1827; --surface-2:#242036; --line:#2e2a42;
+  --fg:#f2eee6; --muted:#9a94ae;
+  --tv:#ffb547; --tv-soft:#3a2a14; --book:#5fd8bd; --book-soft:#123a33;
+  --rank-stroke:#3d3756; --shadow:0 14px 34px -14px rgba(0,0,0,.7); color-scheme:dark}
+
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--fg);font-family:var(--f-ui);font-size:15px;line-height:1.45;-webkit-font-smoothing:antialiased;overflow-x:hidden}
+body.mode-books{--accent:var(--book);--accent-soft:var(--book-soft)}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:30;background:var(--bg)}
+button{font:inherit;color:inherit;background:none;border:0;cursor:pointer}
+button:focus-visible,a:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--accent);outline-offset:3px;border-radius:8px}
+.wrap{max-width:560px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:0 calc(96px + env(safe-area-inset-bottom,0px))}
+
+/* top bar */
+.top{position:sticky;top:env(safe-area-inset-top,0px);z-index:20;background:color-mix(in srgb,var(--bg) 88%,transparent);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);margin-inline:calc(-1 * max(16px,env(safe-area-inset-left,0px)));padding:12px max(16px,env(safe-area-inset-left,0px)) 10px}
+.brand{display:flex;align-items:baseline;justify-content:space-between;gap:12px}
+.logo{font-family:var(--f-rank);font-weight:900;font-size:30px;letter-spacing:.01em;text-transform:uppercase;line-height:1}
+.logo span{color:var(--accent);transition:color .3s}
+.week{font-family:var(--f-data);font-size:11px;color:var(--muted);letter-spacing:.04em;text-transform:uppercase;text-align:right}
+.seg{display:flex;gap:6px;margin-top:12px;overflow-x:auto;scrollbar-width:none}
+.seg::-webkit-scrollbar{display:none}
+.chip{flex:none;padding:7px 13px;border-radius:999px;border:1px solid var(--line);font-size:13px;font-weight:600;color:var(--muted);transition:all .2s}
+.chip[aria-pressed="true"]{background:var(--fg);color:var(--bg);border-color:var(--fg)}
+
+/* hero */
+.hero{position:relative;margin-top:14px;border-radius:22px;overflow:hidden;box-shadow:var(--shadow);cursor:pointer;isolation:isolate;text-align:left;width:100%;display:block}
+.hero .art{aspect-ratio:4/5;max-width:100%;width:100%}
+.hero .art .pt,.hero .art .pk,.hero .art .pa{display:none}
+.hero .shade{position:absolute;inset:0;background:linear-gradient(180deg,rgba(0,0,0,0) 35%,rgba(8,6,14,.88) 100%);z-index:1}
+.hero .meta{position:absolute;inset:auto 0 0 0;padding:20px;z-index:2;color:#fff}
+.hero .big1{position:absolute;top:6px;left:14px;z-index:2;font-family:var(--f-rank);font-weight:900;font-size:150px;line-height:.8;color:transparent;-webkit-text-stroke:2px rgba(255,255,255,.85);text-shadow:0 0 40px rgba(0,0,0,.25)}
+.eyebrow{font-family:var(--f-data);font-size:11px;letter-spacing:.08em;text-transform:uppercase;opacity:.85}
+.hero h2{font-family:var(--f-rank);font-weight:800;font-size:44px;line-height:.92;margin:6px 0 8px;text-transform:uppercase;text-wrap:balance}
+.hero.book h2{font-family:var(--f-cover);font-style:italic;text-transform:none;font-size:40px;font-weight:700}
+.hero p{margin:0;font-size:14px;opacity:.9;max-width:44ch}
+.stat{display:inline-flex;align-items:baseline;gap:6px;margin-top:12px;padding:6px 10px;border-radius:10px;background:rgba(255,255,255,.14);backdrop-filter:blur(6px);font-family:var(--f-data);font-size:12px}
+.stat b{font-family:var(--f-rank);font-size:22px;font-weight:800;letter-spacing:.02em}
+
+/* fresh strip (week 47) */
+.fresh{margin-top:22px}
+.sec-h{display:flex;justify-content:space-between;align-items:baseline;gap:10px;margin:0 0 10px}
+.sec-h h3{margin:0;font-size:13px;letter-spacing:.08em;text-transform:uppercase;font-weight:700}
+.sec-h small{font-size:12px;color:var(--muted)}
+.strip{display:flex;gap:12px;overflow-x:auto;scroll-snap-type:x mandatory;padding-bottom:6px;margin-inline:calc(-1 * max(16px,env(safe-area-inset-left,0px)));padding-inline:max(16px,env(safe-area-inset-left,0px));scrollbar-width:none}
+.strip::-webkit-scrollbar{display:none}
+.fcard{flex:none;width:128px;scroll-snap-align:start;text-align:left}
+.fcard .art{width:128px;aspect-ratio:2/3;border-radius:6px 12px 12px 6px;box-shadow:var(--shadow)}
+.fcard .r{font-family:var(--f-data);font-size:11px;color:var(--accent);margin-top:8px}
+.fcard .t{font-weight:600;font-size:13px;line-height:1.25;margin-top:2px}
+.fcard .a{font-size:12px;color:var(--muted)}
+
+/* list */
+.list{list-style:none;margin:18px 0 0;padding:0;display:flex;flex-direction:column}
+.row{display:grid;grid-template-columns:58px 64px minmax(0,1fr) 28px;align-items:center;gap:12px;padding:12px 0;border-bottom:1px solid var(--line);width:100%;text-align:left;animation:rise .5s both}
+.row .n{font-family:var(--f-rank);font-weight:900;font-size:64px;line-height:.8;color:transparent;-webkit-text-stroke:1.5px var(--rank-stroke);text-align:right;letter-spacing:-.02em}
+.row:active .n,.row:hover .n{-webkit-text-stroke-color:var(--accent)}
+.row .art{width:64px;aspect-ratio:2/3;border-radius:8px}
+.row.book .art{border-radius:3px 8px 8px 3px}
+.row .t{font-weight:700;font-size:15.5px;line-height:1.2;text-wrap:balance}
+.row .s{font-size:12.5px;color:var(--muted);margin-top:2px}
+.bar{height:4px;border-radius:4px;background:var(--surface-2);margin-top:8px;overflow:hidden}
+.bar i{display:block;height:100%;border-radius:4px;background:var(--accent);transform-origin:left;animation:grow .9s cubic-bezier(.2,.8,.2,1) both}
+.tags{display:flex;gap:5px;flex-wrap:wrap;margin-top:6px}
+.tag{font-size:10.5px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;padding:2px 7px;border-radius:999px;background:var(--accent-soft);color:var(--accent)}
+.tag.ghost{background:transparent;border:1px solid var(--line);color:var(--muted)}
+.save{width:28px;height:28px;display:grid;place-items:center;color:var(--muted)}
+.save svg{width:20px;height:20px}
+.save[aria-pressed="true"]{color:var(--accent)}
+.save[aria-pressed="true"] path{fill:currentColor}
+@keyframes rise{from{opacity:.001;transform:translateY(10px)}to{opacity:1;transform:none}}
+@keyframes grow{from{transform:scaleX(0)}to{transform:scaleX(1)}}
+
+/* surprise */
+.surprise{margin-top:22px;width:100%;display:flex;align-items:center;justify-content:center;gap:10px;padding:15px;border-radius:16px;background:var(--fg);color:var(--bg);font-weight:700;font-size:15px}
+.surprise svg{width:18px;height:18px}
+.src{margin-top:18px;font-size:12px;color:var(--muted);line-height:1.6}
+.src a{color:inherit}
+
+/* empty / my list */
+.empty{margin-top:30px;padding:28px 20px;border:1.5px dashed var(--line);border-radius:18px;text-align:center;color:var(--muted)}
+.empty b{display:block;color:var(--fg);font-size:17px;margin-bottom:6px}
+.mine-h{font-family:var(--f-rank);font-weight:800;font-size:40px;text-transform:uppercase;line-height:1;margin:18px 0 4px}
+.mine-group{margin-top:18px}
+.done{opacity:.55}
+.done .t{text-decoration:line-through}
+
+/* tab bar */
+.tabs{position:fixed;left:0;right:0;bottom:0;z-index:25;background:color-mix(in srgb,var(--surface) 92%,transparent);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);border-top:1px solid var(--line);padding:8px max(16px,env(safe-area-inset-right,0px)) calc(8px + env(safe-area-inset-bottom,0px)) max(16px,env(safe-area-inset-left,0px))}
+.tabs-in{max-width:560px;margin:0 auto;display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
+.tab{display:flex;flex-direction:column;align-items:center;gap:3px;padding:6px 0;border-radius:12px;font-size:11.5px;font-weight:600;color:var(--muted);position:relative}
+.tab svg{width:23px;height:23px}
+.tab[aria-current="page"]{color:var(--fg)}
+.tab[aria-current="page"]::after{content:"";position:absolute;top:-9px;width:28px;height:3px;border-radius:0 0 3px 3px;background:var(--accent)}
+.badge{position:absolute;top:2px;left:calc(50% + 8px);min-width:17px;height:17px;padding:0 5px;border-radius:9px;background:var(--accent);color:var(--bg);font-size:10.5px;font-weight:700;line-height:17px;text-align:center}
+
+/* sheet */
+.scrim{position:fixed;inset:0;z-index:40;background:rgba(10,8,18,.55);opacity:0;pointer-events:none;transition:opacity .25s}
+.scrim.on{opacity:1;pointer-events:auto}
+.sheet{position:fixed;left:0;right:0;bottom:0;z-index:41;max-width:560px;margin:0 auto;background:var(--surface);border-radius:24px 24px 0 0;transform:translateY(105%);transition:transform .38s cubic-bezier(.2,.9,.25,1);max-height:92%;overflow-y:auto;padding:10px max(20px,env(safe-area-inset-right,0px)) calc(24px + env(safe-area-inset-bottom,0px)) max(20px,env(safe-area-inset-left,0px))}
+.sheet.on{transform:none}
+.grab{width:40px;height:5px;border-radius:3px;background:var(--line);margin:0 auto 16px}
+.sh-top{display:grid;grid-template-columns:118px minmax(0,1fr);gap:16px;align-items:end}
+.sh-top .art{width:118px;aspect-ratio:2/3;border-radius:10px;box-shadow:var(--shadow)}
+.sh-rank{font-family:var(--f-rank);font-weight:900;font-size:58px;line-height:.85;color:var(--accent)}
+.sh-title{font-weight:700;font-size:21px;line-height:1.15;margin:6px 0 2px;text-wrap:balance}
+.sh-sub{color:var(--muted);font-size:13.5px}
+.sh-blurb{margin:18px 0 0;font-size:15px;line-height:1.55;max-width:60ch}
+.facts{display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:8px;margin-top:16px}
+.fact{background:var(--surface-2);border-radius:12px;padding:10px 12px}
+.fact span{display:block;font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em}
+.fact b{font-family:var(--f-data);font-size:15px;font-weight:500;font-variant-numeric:tabular-nums}
+.acts{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:16px}
+.btn{padding:13px;border-radius:14px;font-weight:700;font-size:14px;text-align:center;border:1.5px solid var(--line);text-decoration:none;color:var(--fg);display:flex;align-items:center;justify-content:center;gap:7px}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--bg)}
+.btn.wide{grid-column:1/-1}
+
+/* surprise overlay */
+.reveal{position:fixed;inset:0;z-index:50;display:grid;place-items:center;background:rgba(10,8,18,.82);opacity:0;pointer-events:none;transition:opacity .25s;padding:24px}
+.reveal.on{opacity:1;pointer-events:auto}
+.reveal .card{width:min(250px,70vw);text-align:center;color:#fff}
+.reveal .art{width:100%;aspect-ratio:2/3;border-radius:16px;box-shadow:0 30px 60px -20px rgba(0,0,0,.8);transition:transform .2s}
+.reveal .rt{font-family:var(--f-rank);font-weight:800;font-size:30px;text-transform:uppercase;margin-top:16px;line-height:1}
+.reveal .rs{font-size:13px;opacity:.75;margin-top:4px}
+.reveal .btn{margin-top:16px;color:#fff;border-color:rgba(255,255,255,.3)}
+.landed .art{animation:pop .45s cubic-bezier(.3,1.6,.5,1)}
+@keyframes pop{0%{transform:scale(.9)}100%{transform:scale(1)}}
+
+/* generative art */
+.art{position:relative;overflow:hidden;display:block;flex:none}
+.art .pt{position:absolute;inset:auto 8% 8% 8%;font-family:var(--f-rank);font-weight:800;text-transform:uppercase;line-height:.9;letter-spacing:.01em;text-wrap:balance}
+.art .pk{position:absolute;top:7%;left:8%;font-family:var(--f-data);font-size:7px;letter-spacing:.1em;opacity:.8}
+.art.cover .pa{position:absolute;top:8%;left:10%;right:10%;font-family:var(--f-ui);font-weight:700;font-size:7px;letter-spacing:.14em;text-transform:uppercase}
+.art.cover .pt{font-family:var(--f-cover);font-style:italic;text-transform:none;font-weight:700;letter-spacing:0;inset:auto 10% 12% 10%}
+.art.cover::before{content:"";position:absolute;left:0;top:0;bottom:0;width:6%;background:linear-gradient(90deg,rgba(0,0,0,.28),rgba(255,255,255,.08) 60%,rgba(0,0,0,0));z-index:2}
+
+@media (prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important}}
+@media (max-width:360px){.row{grid-template-columns:44px 54px minmax(0,1fr) 28px;gap:10px}.row .n{font-size:52px}.row .art{width:54px}}
+</style>
+
+<div class="wrap">
+  <header class="top">
+    <div class="brand">
+      <div class="logo">Top<span>tien</span></div>
+      <div class="week" id="weekLbl">Netflix · 9–15 nov 2026</div>
+    </div>
+    <div class="seg" id="seg" role="group" aria-label="Lijst kiezen"></div>
+  </header>
+  <main id="main"></main>
+</div>
+
+<nav class="tabs" aria-label="Hoofdmenu">
+  <div class="tabs-in">
+    <button class="tab" data-view="series" aria-current="page">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="12" rx="2"/><path d="M8 21h8M12 17v4M10 9l4 2-4 2z"/></svg>
+      Series
+    </button>
+    <button class="tab" data-view="boeken">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H20v15H6.5A2.5 2.5 0 0 0 4 20.5z"/><path d="M4 20.5A2.5 2.5 0 0 0 6.5 23H20v-5"/></svg>
+      Boeken
+    </button>
+    <button class="tab" data-view="lijst">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h12v18l-6-4-6 4z"/></svg>
+      Mijn lijst
+      <span class="badge" id="badge" hidden>0</span>
+    </button>
+  </div>
+</nav>
+
+<div class="scrim" id="scrim"></div>
+<section class="sheet" id="sheet" role="dialog" aria-modal="true" aria-labelledby="shTitle" tabindex="-1"></section>
+<div class="reveal" id="reveal" role="dialog" aria-modal="true" aria-label="Verrassing"><div class="card" id="revealCard"></div></div>
+
+<script>
+/* ---------- data ---------- */
+const SERIES = {
+  en: { label:'Engelstalig', week:'Netflix · 9–15 nov 2026', items:[
+    {t:'Taken: Natalee Holloway', s:'Seizoen 1', v:7.2, g:'True crime · docuserie', b:'Docuserie over de verdwijning van de Amerikaanse tiener Natalee Holloway op Aruba in 2005. Vorige week binnengekomen en nu een volle week lang de meest bekeken Engelstalige serie ter wereld.'},
+    {t:'Black Doves', s:'Seizoen 2', v:6.6, g:'Spionagethriller', b:'Britse spionagethriller met Keira Knightley als spion en Ben Whishaw als huurmoordenaar. Het tweede seizoen staat op twee, het eerste seizoen klimt mee.'},
+    {t:'The Body', s:'Seizoen 1', v:5.1, g:'Nieuw', tags:['Nieuw'], b:'Een van de sterkste nieuwkomers van de week: direct op plek drie.'},
+    {t:"Doozie's Doghouse", s:'Seizoen 1', v:5.0, g:'Nieuw', tags:['Nieuw'], b:'Nieuw binnen op plek vier.'},
+    {t:'Black Doves', s:'Seizoen 1', v:3.7, g:'Spionagethriller', b:'Het eerste seizoen wordt massaal (her)bekeken nu seizoen 2 uit is. Wie wil instappen, begint hier.'},
+    {t:'Power', s:'Seizoen 1', v:2.9, g:'Misdaaddrama', b:'Misdaaddrama over James "Ghost" St. Patrick, nachtclubeigenaar in New York met een dubbelleven in de drugshandel.'},
+    {t:'Raw', s:'2026', v:2.4, g:'Sport · worstelen', b:'De wekelijkse WWE-worstelshow, live op Netflix.'},
+    {t:'Nobody Wants This', s:'Seizoen 3', v:2.4, g:'Romantische comedy', b:'Kristen Bell en Adam Brody in de romcom over een agnostische podcaster die valt voor een rabbijn.'},
+    {t:'The One About Matthew Perry', s:'Seizoen 1', v:1.7, g:'Docuserie', b:'Docuserie over het leven van Friends-acteur Matthew Perry.'},
+    {t:'Danny Go!', s:'Seizoen 2', v:1.5, g:'Kinderen', b:'Kinderserie vol dans en beweging om mee te doen.'}
+  ]},
+  int: { label:'Internationaal', week:'Netflix · 9–15 nov 2026', items:[
+    {t:'Anaesthesia', s:'Seizoen 1', v:4.3, g:'Niet-Engelstalig', b:'De meest bekeken niet-Engelstalige serie van de week.'},
+    {t:'The Empress', s:'Seizoen 3', v:3.9, g:'Historisch drama · Duitsland', b:'Duits historisch drama over keizerin Elisabeth van Oostenrijk, beter bekend als Sisi.'},
+    {t:'Lupin', s:'Deel 4', v:3.9, g:'Misdaad · Frankrijk', b:'Omar Sy is terug als meesterdief Assane Diop. Deel 1 staat ook weer in de lijst.'},
+    {t:'Dead-End Job', s:'Miniserie', v:3.7, g:'Miniserie', b:'Miniserie, nieuw in de wereldwijde top 10.'},
+    {t:'Doctor X: Mafia in White', s:'Miniserie', v:3.4, g:'Miniserie', b:''},
+    {t:"Alicia's Law", s:'Seizoen 1', v:3.3, g:'Niet-Engelstalig', b:''},
+    {t:'Murder in Galicia', s:'Miniserie', v:2.8, g:'Misdaad', b:''},
+    {t:'A Couple of Lies', s:'Miniserie', v:2.1, g:'Miniserie', b:''},
+    {t:"The Devil's Plan", s:'Seizoen 3', v:2.0, g:'Reality · Zuid-Korea', b:'Koreaanse realityshow waarin slimme deelnemers elkaar te slim af moeten zijn in strategische spellen.'},
+    {t:'Lupin', s:'Deel 1', v:1.9, g:'Misdaad · Frankrijk', b:'Waar het allemaal begon: het eerste deel van Lupin klimt mee met het nieuwe deel.'}
+  ]}
+};
+const BOOKS = {
+  week:'Bestseller 60 · week 46',
+  fresh:[
+    {r:1,t:'Finale',a:'Michael Berg',g:'Thriller',b:'Het slot van de Mergellandmoorden-trilogie. Direct binnen op nummer 1 in week 47; ook de eerdere delen Terugkeer en Vergelding staan weer in de lijst.'},
+    {r:2,t:'Orlando',a:'Harry Whittaker',g:'Roman',b:'Zakt na één week op de eerste plek naar nummer 2.'},
+    {r:3,t:'Bravoer',a:'Tobias Camman',g:'Kookboek',b:'Nieuw kookboek, op plek 3 binnengekomen in week 47.'},
+    {r:4,t:'Het grote voorleesboek van de Zoete Zusjes',a:'Hanneke de Zoete',g:'Kinderboek',b:'Op tijd voor Sinterklaas: nieuw op plek 4 in week 47.'}
+  ],
+  items:[
+    {t:'Orlando',a:'Harry Whittaker',g:'Roman',tags:['Nieuw'],b:'Een nieuwe roman in de wereld van De zeven zussen, de geliefde reeks van Lucinda Riley. Verschenen op 5 november bij Xander Uitgevers en meteen binnen op 1.'},
+    {t:'Gooische chaos',a:'Pauline Wingelaar',g:'Roman',b:''},
+    {t:'Het boek der omhelzingen',a:'Sinan Can',g:'Non-fictie',b:''},
+    {t:'Job en Bob',a:'',g:'',b:''},
+    {t:'Himmler in New York',a:'Arnon Grunberg',g:'Roman',b:'Nieuwe roman van Arnon Grunberg.'},
+    {t:'Het Waterpark',a:'Rutger Vink & Thomas van Grinsven',g:'Kinderboek',b:''},
+    {t:'Terug naar Hildegard',a:'Susan Smit',g:'Roman',b:''},
+    {t:'Houlang',a:'Emma de Thouars',g:'',b:''},
+    {t:'Dank voor stank',a:'Dav Pilkey',g:'Strip · kinderen',b:'Nieuw deel van Dav Pilkey, de maker van Dog Man.'},
+    {t:'Theo of Golden',a:'Allen Levi',g:'Roman',b:'Het boek dat via mond-tot-mondreclame een wereldwijde bestseller werd.'}
+  ]
+};
+SERIES.en.items.forEach((x,i)=>{x.r=i+1;x.id='en-'+i;x.kind='tv'});
+SERIES.int.items.forEach((x,i)=>{x.r=i+1;x.id='int-'+i;x.kind='tv'});
+BOOKS.items.forEach((x,i)=>{x.r=i+1;x.id='bk-'+i;x.kind='book'});
+BOOKS.fresh.forEach((x,i)=>{x.id='fr-'+i;x.kind='book';x.freshItem=true});
+const ALL = [...SERIES.en.items,...SERIES.int.items,...BOOKS.items,...BOOKS.fresh];
+const byId = id => ALL.find(x=>x.id===id);
+
+/* ---------- storage ---------- */
+const store = {
+  get(k,d){try{const v=localStorage.getItem(k);return v?JSON.parse(v):d}catch(e){return d}},
+  set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}
+};
+let saved = store.get('toptien.saved',{}); // id -> {done:bool}
+let sub = store.get('toptien.sub','en');
+const persist=()=>{store.set('toptien.saved',saved);updateBadge()};
+
+/* ---------- generative art ---------- */
+function hash(s){let h=2166136261;for(const c of s){h^=c.charCodeAt(0);h=Math.imul(h,16777619)}return h>>>0}
+const TV_PAL=[['#ff5e3a','#2b0a3d','#ffe9c7'],['#ffb547','#14213d','#fff3d6'],['#00c2a8','#0b1d33','#e6fffb'],['#e83f6f','#1d1238','#ffe3ec'],['#7b5cff','#0d0a24','#ece6ff'],['#f2d544','#1a1a1a','#fffbe0'],['#3a86ff','#061529','#e3efff'],['#ff8fa3','#3d0c24','#fff0f3'],['#9ae05a','#11230b','#f2ffe6'],['#ff7b00','#260f00','#fff1e0']];
+const BK_PAL=[['#c8553d','#f6e7cb','#1f1a17'],['#1d3557','#e9d8a6','#f1faee'],['#2a9d8f','#264653','#f4f1de'],['#6d597a','#eaac8b','#fdf6ec'],['#bc4749','#f2e8cf','#386641'],['#e9c46a','#264653','#1b1b1b'],['#0b6e4f','#f3e9d2','#fffaf0'],['#3d405b','#f2cc8f','#f4f1de'],['#9a031e','#fbf3e4','#fff7ec'],['#5f0f40','#fb8b24','#fff0e0']];
+function art(item,size){
+  const h=hash(item.t+(item.s||'')+(item.a||''));
+  const el=document.createElement('span');
+  const fs = size==='xl'?34:size==='l'?18:size==='m'?12:9;
+  if(item.kind==='book'){
+    const [c1,c2,ink]=BK_PAL[h%BK_PAL.length];
+    const v=(h>>4)%4;
+    const bg=[
+      `linear-gradient(180deg,${c1} 0 58%,${c2} 58% 61%,${c1} 61%)`,
+      `radial-gradient(circle at 70% 35%,${c2} 0 22%,transparent 22.5%),${c1}`,
+      `repeating-linear-gradient(135deg,${c1} 0 10px,color-mix(in srgb,${c1} 80%,${c2}) 10px 20px)`,
+      `linear-gradient(90deg,${c1} 0 72%,${c2} 72% 75%,${c1} 75%)`
+    ][v];
+    el.className='art cover';
+    el.style.background=bg;if(!el.style.background)el.style.background=`linear-gradient(90deg,${c1} 72%,${c2} 72%,${c2} 76%,${c1} 76%)`;if(!el.style.background)el.style.background=c1;el.style.color=ink;
+    el.innerHTML=`<span class="pa">${esc(item.a||'Bestseller 60')}</span><span class="pt" style="font-size:${fs}px">${esc(item.t)}</span>`;
+  } else {
+    const [c1,c2,ink]=TV_PAL[h%TV_PAL.length];
+    const v=(h>>5)%5;
+    const bg=[
+      `radial-gradient(120% 70% at 50% 15%,${c1} 0%,transparent 60%),repeating-linear-gradient(0deg,rgba(0,0,0,.18) 0 2px,transparent 2px 5px),${c2}`,
+      `repeating-radial-gradient(circle at 75% 30%,${c1} 0 6px,${c2} 6px 14px)`,
+      `linear-gradient(160deg,transparent 40%,rgba(0,0,0,.5)),repeating-linear-gradient(115deg,${c1} 0 14px,${c2} 14px 30px)`,
+      `conic-gradient(from ${h%360}deg at 50% 32%,${c1},${c2},${c1},${c2},${c1})`,
+      `linear-gradient(${c2},${c2}) ,${c2}`
+    ][v];
+    el.className='art poster';
+    el.style.background=bg;if(!el.style.background)el.style.background=`conic-gradient(from ${h%360}deg at 50% 32%,${c1},${c2},${c1})`;if(!el.style.background)el.style.background=`linear-gradient(160deg,${c1},${c2})`;el.style.color=ink;
+    if(v===4){el.style.background=`radial-gradient(closest-side circle at 50% 40%,${c1} 0 62%,transparent 63%),linear-gradient(180deg,${c2} 0 40%,color-mix(in srgb,${c1} 30%,${c2}) 40%)`}
+    el.innerHTML=`<span class="pk">${item.s?esc(item.s).toUpperCase():''}</span><span class="pt" style="font-size:${fs}px;text-shadow:0 2px 12px rgba(0,0,0,.45)">${esc(item.t)}</span>`;
+  }
+  return el;
+}
+function esc(s){return String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]))}
+
+/* ---------- icons ---------- */
+const ICON_SAVE='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M6 3h12v18l-6-4-6 4z"/></svg>';
+const ICON_DICE='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="4"/><circle cx="8.5" cy="8.5" r="1" fill="currentColor"/><circle cx="15.5" cy="15.5" r="1" fill="currentColor"/><circle cx="12" cy="12" r="1" fill="currentColor"/></svg>';
+
+/* ---------- views ---------- */
+let view='series';
+const main=document.getElementById('main'), seg=document.getElementById('seg'), weekLbl=document.getElementById('weekLbl');
+
+function currentList(){return view==='series'?SERIES[sub].items:BOOKS.items}
+
+function render(){
+  document.body.classList.toggle('mode-books',view==='boeken');
+  document.querySelectorAll('.tab').forEach(t=>{if(t.dataset.view===view)t.setAttribute('aria-current','page');else t.removeAttribute('aria-current')});
+  main.innerHTML='';seg.innerHTML='';
+  if(view==='lijst'){weekLbl.textContent='Bewaard op dit toestel';seg.hidden=true;return renderMine()}
+  seg.hidden=false;
+  if(view==='series'){
+    for(const k of ['en','int']){
+      const b=document.createElement('button');b.className='chip';b.textContent=SERIES[k].label;
+      b.setAttribute('aria-pressed',sub===k);b.onclick=()=>{sub=k;store.set('toptien.sub',k);render()};seg.appendChild(b);
+    }
+    weekLbl.textContent=SERIES[sub].week;
+  } else {
+    const b=document.createElement('button');b.className='chip';b.textContent='Bestseller 60';b.setAttribute('aria-pressed','true');seg.appendChild(b);
+    const n=document.createElement('button');n.className='chip';n.textContent='Nieuw in week 47';n.setAttribute('aria-pressed','false');
+    n.onclick=()=>document.getElementById('fresh')?.scrollIntoView({behavior:'smooth',block:'center'});seg.appendChild(n);
+    weekLbl.textContent=BOOKS.week;
+  }
+  const items=currentList();
+  main.appendChild(hero(items[0]));
+  if(view==='boeken') main.appendChild(freshStrip());
+  const ol=document.createElement('ol');ol.className='list';
+  const max=items[0].v||1;
+  items.slice(1).forEach((it,i)=>ol.appendChild(row(it,max,i)));
+  main.appendChild(ol);
+  const s=document.createElement('button');s.className='surprise';
+  s.innerHTML=ICON_DICE+(view==='series'?'Wat kijk ik vanavond?':'Wat lees ik hierna?');
+  s.onclick=surprise;main.appendChild(s);
+  const src=document.createElement('p');src.className='src';
+  src.innerHTML= view==='series'
+    ? 'Bron: <a href="https://www.netflix.com/tudum/top10" target="_blank" rel="noopener">Netflix Top 10</a>, wereldwijde lijst over 9–15 november 2026. Views = kijkuren gedeeld door de speelduur.'
+    : 'Bron: <a href="https://www.debestseller60.nl/" target="_blank" rel="noopener">De Bestseller 60</a> (CPNB). Top 10 van week 46; de eerste vier van week 47 staan bovenaan.';
+  main.appendChild(src);
+}
+
+function hero(it){
+  const b=document.createElement('button');b.className='hero'+(it.kind==='book'?' book':'');
+  b.setAttribute('aria-label',`Nummer 1: ${it.t}`);
+  b.appendChild(art(it,'xl'));
+  b.insertAdjacentHTML('beforeend',`<div class="shade"></div><div class="big1" aria-hidden="true">1</div>
+    <div class="meta"><div class="eyebrow">${it.kind==='book'?'Nummer 1 · '+esc(it.a):'Nummer 1 · '+esc(it.s)+(it.g?' · '+esc(it.g):'')}</div>
+    <h2>${esc(it.t)}</h2>${it.b?`<p>${esc(it.b)}</p>`:''}
+    ${it.v?`<span class="stat"><b>${fmt(it.v)}</b> mln views</span>`:''}</div>`);
+  b.onclick=()=>openSheet(it.id);
+  return b;
+}
+function freshStrip(){
+  const w=document.createElement('section');w.className='fresh';w.id='fresh';
+  w.innerHTML='<div class="sec-h"><h3>Vers binnen · week 47</h3><small>Veeg →</small></div>';
+  const s=document.createElement('div');s.className='strip';
+  BOOKS.fresh.forEach(it=>{
+    const c=document.createElement('button');c.className='fcard';
+    c.appendChild(art(it,'m'));
+    c.insertAdjacentHTML('beforeend',`<div class="r">#${it.r} · ${esc(it.g)}</div><div class="t">${esc(it.t)}</div><div class="a">${esc(it.a)}</div>`);
+    c.onclick=()=>openSheet(it.id);s.appendChild(c);
+  });
+  w.appendChild(s);return w;
+}
+function row(it,max,i){
+  const li=document.createElement('li');
+  const b=document.createElement('div');b.className='row'+(it.kind==='book'?' book':'');b.style.animationDelay=(i*45)+'ms';
+  b.setAttribute('role','button');b.tabIndex=0;
+  const n=document.createElement('span');n.className='n';n.textContent=it.r;n.setAttribute('aria-hidden','true');
+  const info=document.createElement('div');info.style.minWidth='0';
+  const sub = it.kind==='book' ? (it.a||'Auteur onbekend')+(it.g?' · '+it.g:'') : it.s+' · '+fmt(it.v)+' mln views';
+  info.innerHTML=`<div class="t">${esc(it.t)}</div><div class="s">${esc(sub)}</div>`+
+    (it.v?`<div class="bar"><i style="width:${(it.v/max*100).toFixed(1)}%;animation-delay:${150+i*45}ms"></i></div>`:'')+
+    ((it.tags||[]).length||(it.kind==='tv'&&it.g)?`<div class="tags">${(it.tags||[]).map(t=>`<span class="tag">${esc(t)}</span>`).join('')}${it.kind==='tv'&&it.g&&it.g!=='Nieuw'?`<span class="tag ghost">${esc(it.g)}</span>`:''}</div>`:'');
+  const sv=saveBtn(it);
+  b.append(n,art(it,'s'),info,sv);
+  b.onclick=e=>{if(!e.target.closest('.save'))openSheet(it.id)};
+  b.onkeydown=e=>{if((e.key==='Enter'||e.key===' ')&&!e.target.closest('.save')){e.preventDefault();openSheet(it.id)}};
+  li.appendChild(b);return li;
+}
+function saveBtn(it){
+  const sv=document.createElement('button');sv.className='save';sv.innerHTML=ICON_SAVE;
+  const sync=()=>{sv.setAttribute('aria-pressed',!!saved[it.id]);sv.setAttribute('aria-label',(saved[it.id]?'Verwijder ':'Bewaar ')+it.t)};
+  sync();
+  sv.onclick=e=>{e.stopPropagation();toggleSave(it.id);sync();if(view==='lijst')render()};
+  return sv;
+}
+function toggleSave(id){if(saved[id])delete saved[id];else saved[id]={done:false,at:Date.now()};persist()}
+function fmt(v){return v.toLocaleString('nl-NL',{minimumFractionDigits:1,maximumFractionDigits:1})}
+
+function renderMine(){
+  main.insertAdjacentHTML('beforeend','<h1 class="mine-h">Mijn lijst</h1>');
+  const ids=Object.keys(saved).filter(byId);
+  if(!ids.length){
+    main.insertAdjacentHTML('beforeend','<div class="empty"><b>Nog niets bewaard</b>Tik op het bladwijzertje naast een serie of boek. Wat je bewaart, blijft op deze telefoon staan.</div>');
+    return;
+  }
+  const groups=[['tv','Kijken'],['book','Lezen']];
+  for(const [k,label] of groups){
+    const list=ids.map(byId).filter(x=>x.kind===k).sort((a,b)=>(saved[a.id].done-saved[b.id].done)||(saved[a.id].at-saved[b.id].at));
+    if(!list.length)continue;
+    const g=document.createElement('section');g.className='mine-group';
+    g.innerHTML=`<div class="sec-h"><h3>${label}</h3><small>${list.filter(x=>saved[x.id].done).length} van ${list.length} ${k==='tv'?'gezien':'gelezen'}</small></div>`;
+    const ol=document.createElement('ol');ol.className='list';ol.style.marginTop='0';
+    list.forEach((it,i)=>{const li=row(it,1,i);if(saved[it.id].done)li.firstChild.classList.add('done');
+      const bar=li.querySelector('.bar');if(bar)bar.remove();ol.appendChild(li)});
+    g.appendChild(ol);main.appendChild(g);
+  }
+}
+function updateBadge(){const n=Object.keys(saved).filter(byId).length;const b=document.getElementById('badge');b.hidden=!n;b.textContent=n}
+
+/* ---------- sheet ---------- */
+const sheet=document.getElementById('sheet'), scrim=document.getElementById('scrim');
+let lastFocus=null;
+function openSheet(id){
+  const it=byId(id);lastFocus=document.activeElement;
+  const isB=it.kind==='book';
+  const listName=isB?(it.freshItem?'Bestseller 60 · week 47':'Bestseller 60 · week 46'):(id.startsWith('en')?'Netflix · Engelstalig':'Netflix · Internationaal');
+  const q=encodeURIComponent(isB?`${it.t} ${it.a} boek`:`${it.t} Netflix`);
+  sheet.innerHTML=`<div class="grab"></div><div class="sh-top"></div>
+    ${it.b?`<p class="sh-blurb">${esc(it.b)}</p>`:''}
+    <div class="facts">
+      <div class="fact"><span>Positie</span><b>#${it.r}</b></div>
+      ${it.v?`<div class="fact"><span>Views</span><b>${fmt(it.v)} mln</b></div>`:''}
+      ${it.v&&it.r>1?`<div class="fact"><span>Achter #1</span><b>−${fmt(currentOf(id)[0].v-it.v)} mln</b></div>`:''}
+      ${it.g?`<div class="fact"><span>Genre</span><b style="font-family:var(--f-ui);font-weight:600">${esc(it.g)}</b></div>`:''}
+    </div>
+    <div class="acts">
+      <button class="btn primary" id="shSave"></button>
+      <button class="btn" id="shDone"></button>
+      <a class="btn wide" href="${isB?'https://www.google.com/search?q='+q:'https://www.netflix.com/search?q='+encodeURIComponent(it.t)}" target="_blank" rel="noopener">${isB?'Zoek dit boek':'Open in Netflix'} ↗</a>
+    </div>`;
+  const top=sheet.querySelector('.sh-top');
+  top.appendChild(art(it,'l'));
+  top.insertAdjacentHTML('beforeend',`<div><div class="sh-rank">#${it.r}</div><div class="sh-title" id="shTitle">${esc(it.t)}</div><div class="sh-sub">${esc(isB?(it.a||'Auteur onbekend'):it.s)}<br>${esc(listName)}</div></div>`);
+  const sBtn=sheet.querySelector('#shSave'), dBtn=sheet.querySelector('#shDone');
+  const sync=()=>{
+    sBtn.textContent=saved[id]?'✓ Op mijn lijst':'+ Mijn lijst';
+    dBtn.textContent=saved[id]?.done?(isB?'Gelezen ✓':'Gezien ✓'):(isB?'Markeer gelezen':'Markeer gezien');
+  };
+  sBtn.onclick=()=>{toggleSave(id);sync();refreshBehind()};
+  dBtn.onclick=()=>{if(!saved[id])saved[id]={done:false,at:Date.now()};saved[id].done=!saved[id].done;persist();sync();refreshBehind()};
+  sync();
+  sheet.style.setProperty('--accent',isB?'var(--book)':'var(--tv)');
+  sheet.classList.add('on');scrim.classList.add('on');sheet.scrollTop=0;
+  setTimeout(()=>sheet.focus(),50);
+}
+function currentOf(id){return id.startsWith('en')?SERIES.en.items:id.startsWith('int')?SERIES.int.items:BOOKS.items}
+function refreshBehind(){const y=scrollY;render();scrollTo(0,y)}
+function closeSheet(){sheet.classList.remove('on');scrim.classList.remove('on');lastFocus?.focus?.()}
+scrim.onclick=closeSheet;
+document.addEventListener('keydown',e=>{if(e.key==='Escape'){closeSheet();closeReveal()}});
+// swipe down to close
+let sy=null;
+sheet.addEventListener('touchstart',e=>{if(sheet.scrollTop<=0)sy=e.touches[0].clientY},{passive:true});
+sheet.addEventListener('touchmove',e=>{if(sy==null)return;const d=e.touches[0].clientY-sy;if(d>0)sheet.style.transform=`translateY(${d}px)`},{passive:true});
+sheet.addEventListener('touchend',e=>{if(sy==null)return;const d=e.changedTouches[0].clientY-sy;sheet.style.transform='';sy=null;if(d>90)closeSheet()});
+
+/* ---------- surprise ---------- */
+const reveal=document.getElementById('reveal'), rcard=document.getElementById('revealCard');
+let spinT=null;
+function surprise(){
+  const pool=currentList();
+  const reduce=matchMedia('(prefers-reduced-motion: reduce)').matches;
+  reveal.classList.add('on');
+  let i=0,steps=reduce?0:14+Math.floor(Math.random()*6);
+  const pick=pool[Math.floor(Math.random()*pool.length)];
+  const show=(it,final)=>{
+    rcard.className='card'+(final?' landed':'');
+    rcard.innerHTML='';rcard.appendChild(art(it,'xl'));
+    rcard.insertAdjacentHTML('beforeend',`<div class="rt">${final?esc(it.t):'&nbsp;'}</div><div class="rs">${final?`#${it.r} · ${esc(it.kind==='book'?it.a:it.s)}`:'kiezen…'}</div>`);
+    if(final){
+      const a=document.createElement('button');a.className='btn';a.textContent='Bekijk details';
+      a.onclick=()=>{closeReveal();openSheet(it.id)};rcard.appendChild(a);
+      const again=document.createElement('button');again.className='btn';again.textContent='Nog een keer';again.onclick=surprise;rcard.appendChild(again);
+    }
+  };
+  clearTimeout(spinT);
+  const tick=()=>{
+    if(i>=steps){show(pick,true);return}
+    show(pool[i%pool.length],false);i++;
+    spinT=setTimeout(tick,50+i*i*1.6);
+  };
+  tick();
+}
+function closeReveal(){clearTimeout(spinT);reveal.classList.remove('on')}
+reveal.onclick=e=>{if(e.target===reveal)closeReveal()};
+
+/* ---------- nav ---------- */
+document.querySelectorAll('.tab').forEach(t=>t.onclick=()=>go(t.dataset.view));
+function go(v){view=v;try{history.replaceState(null,'','#'+v)}catch(e){location.hash=v}render();scrollTo({top:0})}
+const fromHash=()=>{const h=location.hash.slice(1);if(['series','boeken','lijst'].includes(h))view=h};
+addEventListener('hashchange',()=>{fromHash();render()});
+fromHash();render();updateBadge();
+</script>
+
+</body>
+</html>
