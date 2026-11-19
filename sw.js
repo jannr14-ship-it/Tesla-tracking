@@ -1,4 +1,4 @@
-const CACHE = 'teslatrack-v1';
+const CACHE = 'teslatrack-v2';
 const SHELL = [
   './tesla-tracker.html',
   'https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js',
@@ -21,7 +21,7 @@ self.addEventListener('activate', e => {
 
 self.addEventListener('fetch', e => {
   // Network first voor API calls, cache first voor app shell
-  if (e.request.url.includes('anthropic.com') || e.request.url.includes('googleapis.com/mcp')) {
+  if (e.request.url.includes('anthropic.com') || e.request.url.includes('googleapis.com/mcp') || e.request.url.includes('km.json')) {
     return; // altijd network voor data
   }
   e.respondWith(
