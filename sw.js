@@ -1,6 +1,6 @@
-const CACHE = 'teslatrack-v1';
+const CACHE = 'teslatrack-v3';
 const SHELL = [
-  './tesla-tracker.html',
+  './tesla-tracker-6.html',
   'https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js',
   'https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Space+Grotesk:wght@400;500;700&display=swap'
 ];
@@ -21,7 +21,7 @@ self.addEventListener('activate', e => {
 
 self.addEventListener('fetch', e => {
   // Network first voor API calls, cache first voor app shell
-  if (e.request.url.includes('anthropic.com') || e.request.url.includes('googleapis.com/mcp')) {
+  if (e.request.url.includes('anthropic.com') || e.request.url.includes('googleapis.com/mcp') || e.request.url.includes('km.json')) {
     return; // altijd network voor data
   }
   e.respondWith(
@@ -31,6 +31,6 @@ self.addEventListener('fetch', e => {
         caches.open(CACHE).then(c => c.put(e.request, clone));
       }
       return resp;
-    }).catch(() => caches.match('./tesla-tracker.html')))
+    }).catch(() => caches.match('./tesla-tracker-6.html')))
   );
 });
