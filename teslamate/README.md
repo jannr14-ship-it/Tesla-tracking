@@ -23,14 +23,17 @@ het eind van die dag. Bestaat er op die datum al een regel met dezelfde stand
    (GitHub → repo → Settings → Deploy keys) of een fine-grained token dat
    alleen voor deze repo geldt.
 
-2. **Test het script** zonder te pushen:
+2. **Installeer** met één commando:
    ```bash
    cd ~/Tesla-tracking
-   GIT_PUSH=0 TESLAMATE_DIR=~/teslamate teslamate/export-km.sh
-   cat teslamate/km.json
+   TESLAMATE_DIR=~/teslamate teslamate/install.sh
    ```
-   `TESLAMATE_DIR` is de map met de `docker-compose.yml` van TeslaMate. Wijkt
-   je setup af, zet de instellingen dan in `teslamate/export-km.env`
+   `TESLAMATE_DIR` is de map met de `docker-compose.yml` van TeslaMate. Het
+   script test of de kilometerstand gelezen kan worden en of de server kan
+   pushen. Daarna zet het een dagelijkse cron-taak om 23:55 klaar en voert het
+   meteen een eerste export uit.
+
+   Wijkt je setup af, zet de instellingen dan in `teslamate/export-km.env`
    (staat in `.gitignore`), bijvoorbeeld:
    ```bash
    TESLAMATE_DIR=/opt/teslamate
@@ -39,12 +42,6 @@ het eind van die dag. Bestaat er op die datum al een regel met dezelfde stand
    # of zonder Docker:
    # PSQL="psql -h localhost -U teslamate teslamate"
    ```
-
-3. **Plan het dagelijks in** met `crontab -e`:
-   ```
-   55 23 * * *  $HOME/Tesla-tracking/teslamate/export-km.sh >> $HOME/teslatrack-km.log 2>&1
-   ```
-   Het script commit alleen als er echt een nieuwe stand is.
 
 ## In de app
 
